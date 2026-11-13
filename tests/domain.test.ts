@@ -15,6 +15,22 @@ describe('domain', () => {
     expect(() => validateMediaType('carousel', 2)).not.toThrow();
     expect(() => validateMediaType('photo', 2)).toThrow();
   });
+  it('lanza INVALID_REQUEST 400 ante captions y cardinalidades fuera de límite', () => {
+    const invalid = (run: () => unknown, message: RegExp) => {
+      let caught: unknown;
+      try { run(); } catch (error) { caught = error; }
+      expect(caught).toBeInstanceOf(PublicationError);
+      expect(caught).toMatchObject({ code: 'INVALID_REQUEST', retryable: false, status: 400 });
+      expect((caught as Error).message).toMatch(message);
+    };
+    invalid(() => Caption.create('x'.repeat(2201)), /2200 characters/);
+    invalid(() => Caption.create(Array.from({ length: 6 }, (_, i) => `#tag${i}`).join(' ')), /5 hashtags/);
+    invalid(() => Caption.create(Array.from({ length: 21 }, (_, i) => `@user${i}`).join(' ')), /20 mentions/);
+    invalid(() => validateMediaType('carousel', 1), /between 2 and 10/);
+    invalid(() => validateMediaType('carousel', 11), /between 2 and 10/);
+    invalid(() => validateMediaType('photo', 0), /at least one media item/);
+    invalid(() => validateMediaType('story', 2), /exactly one media item/);
+  });
   it('checks account capabilities', () => { expect(hasCapability(account, 'media')).toBe(true); expect(hasCapability(account, 'stories')).toBe(false); });
   it('exposes retryability and Meta trace fields', () => {
     const error = new PublicationError('temporary', { code: 'RATE_LIMIT', subcode: 9007, fbtrace: 'TRACE', retryable: true });

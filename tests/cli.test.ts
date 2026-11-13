@@ -13,6 +13,13 @@ describe('CLI', () => {
   it('returns JSON usage errors with exit code 2', async () => { const result = await runCli(['unknown', '--json']); expect(result.code).toBe(2); expect(JSON.parse(result.stderr)).toMatchObject({ code: 'INVALID_REQUEST' }); });
   it('requires media and project safely', async () => { const result = await runCli(['publish', '--json']); expect(result.code).toBe(2); expect(result.stderr).toContain('media'); });
 
+  it('sale con código 1 y el mensaje real ante un INVALID_REQUEST de validación', async () => {
+    // `discover` valida el username antes de resolver la cuenta: ni red ni .env.
+    const result = await runCli(['discover', '--project', '/tmp', '--username', 'no vale!', '--json']);
+    expect(result.code).toBe(1);
+    expect(JSON.parse(result.stderr)).toMatchObject({ error: 'Invalid Instagram username', code: 'INVALID_REQUEST' });
+  });
+
   it('carga el .env de la instalación, no una ruta absoluta', () => {
     // dist/cli/index.js y src/cli/index.ts suben dos niveles hasta la raíz.
     expect(installEnvFile('file:///opt/ig-gateway/dist/cli/index.js')).toBe('/opt/ig-gateway/.env');

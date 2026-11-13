@@ -1,3 +1,5 @@
+import { invalidRequestError } from './PublicationError.js';
+
 export class Caption {
   static readonly MAX_LENGTH = 2_200;
   // Instagram recortó los hashtags a 5 por post y por reel el 18-dic-2025; la
@@ -11,17 +13,17 @@ export class Caption {
 
   static create(value = ''): Caption {
     if (value.length > Caption.MAX_LENGTH) {
-      throw new Error(`Caption exceeds ${Caption.MAX_LENGTH} characters`);
+      throw invalidRequestError(`Caption exceeds ${Caption.MAX_LENGTH} characters`);
     }
 
     const hashtags = [...value.matchAll(/(?:^|\s)#([\p{L}\p{N}_]+)/gu)].map((match) => match[1] as string);
     if (hashtags.length > Caption.MAX_HASHTAGS) {
-      throw new Error(`Caption exceeds ${Caption.MAX_HASHTAGS} hashtags`);
+      throw invalidRequestError(`Caption exceeds ${Caption.MAX_HASHTAGS} hashtags`);
     }
 
     const mentions = [...value.matchAll(/(?:^|\s)@([\p{L}\p{N}._]+)/gu)].map((match) => match[1] as string);
     if (mentions.length > Caption.MAX_MENTIONS) {
-      throw new Error(`Caption exceeds ${Caption.MAX_MENTIONS} mentions`);
+      throw invalidRequestError(`Caption exceeds ${Caption.MAX_MENTIONS} mentions`);
     }
 
     return new Caption(value, hashtags, mentions);

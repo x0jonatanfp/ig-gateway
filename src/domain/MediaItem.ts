@@ -1,3 +1,5 @@
+import { invalidRequestError } from './PublicationError.js';
+
 export type MediaType = 'photo' | 'carousel' | 'reel' | 'story';
 
 export interface UserTag {
@@ -25,12 +27,13 @@ export interface MediaItem {
   audioName?: string;
 }
 
+/** La cardinalidad la elige quien llama: es un 400, no un fallo interno. */
 export function validateMediaType(mediaType: MediaType, itemCount: number): void {
-  if (itemCount === 0) throw new Error(`${mediaType} publication requires at least one media item`);
+  if (itemCount === 0) throw invalidRequestError(`${mediaType} publication requires at least one media item`);
   if (mediaType === 'carousel' && (itemCount < 2 || itemCount > 10)) {
-    throw new Error('A carousel must contain between 2 and 10 media items');
+    throw invalidRequestError('A carousel must contain between 2 and 10 media items');
   }
   if (mediaType !== 'carousel' && itemCount !== 1) {
-    throw new Error(`${mediaType} publication requires exactly one media item`);
+    throw invalidRequestError(`${mediaType} publication requires exactly one media item`);
   }
 }

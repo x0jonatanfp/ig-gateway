@@ -1,6 +1,6 @@
 {
   "name": "ig-gateway",
-  "version": "2.2.4",
+  "version": "2.2.5",
   "private": true,
   "license": "MIT",
   "type": "module",

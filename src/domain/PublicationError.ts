@@ -37,3 +37,12 @@ export class PublicationError extends Error {
     this.cause = details.cause;
   }
 }
+
+/**
+ * Entrada inválida: culpa de quien llama, nunca un fallo del gateway. Sin esto,
+ * el manejador HTTP convertía un `Error` genérico en un 500 UNKNOWN y ocultaba
+ * el mensaje real al cliente.
+ */
+export function invalidRequestError(message: string): PublicationError {
+  return new PublicationError(message, { code: 'INVALID_REQUEST', retryable: false, status: 400 });
+}
