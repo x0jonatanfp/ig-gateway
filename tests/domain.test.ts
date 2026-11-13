@@ -5,9 +5,10 @@ const account: Account = { id: '1', username: 'test', accessToken: 'secret', tok
 
 describe('domain', () => {
   it('accepts captions within length and hashtag limits', () => expect(Caption.create('Hola #uno #dos').hashtags).toEqual(['uno', 'dos']));
-  it('rejects captions over 2200 chars and over 30 hashtags', () => {
+  it('rejects captions over 2200 chars and over 5 hashtags', () => {
     expect(() => Caption.create('x'.repeat(2201))).toThrow(/2200/);
-    expect(() => Caption.create(Array.from({ length: 31 }, (_, i) => `#tag${i}`).join(' '))).toThrow(/30/);
+    expect(Caption.create(Array.from({ length: 5 }, (_, i) => `#tag${i}`).join(' ')).hashtags).toHaveLength(5);
+    expect(() => Caption.create(Array.from({ length: 6 }, (_, i) => `#tag${i}`).join(' '))).toThrow(/5 hashtags/);
   });
   it('validates carousel cardinality', () => {
     expect(() => validateMediaType('carousel', 1)).toThrow();

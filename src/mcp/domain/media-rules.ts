@@ -14,7 +14,10 @@ export const PUBLICATION_TYPES: readonly PublicationType[] = [
 
 /** Límites verificados en ig-gateway (Caption.ts / MediaItem.ts). */
 export const MAX_CAPTION_CHARS = 2_200;
-export const MAX_HASHTAGS = 30;
+// Instagram recortó los hashtags a 5 por post y por reel el 18-dic-2025; la
+// documentación de Meta sigue diciendo 30.
+export const MAX_HASHTAGS = 5;
+// Pendiente de verificar contra Meta: su documentación dice 20 y otras fuentes, 3.
 export const MAX_MENTIONS = 20;
 export const MAX_COLLABORATORS = 3;
 export const MIN_CAROUSEL_ITEMS = 2;

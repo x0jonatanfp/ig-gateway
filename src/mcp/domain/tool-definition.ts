@@ -64,7 +64,7 @@ export const INSTAGRAM_TOOL_DEFINITION = {
           caption: {
             type: "string",
             description:
-              "Texto del post; máximo 2200 caracteres y 30 hashtags. Sin caption, vacío. Acciones: publish_preview, publish.",
+              "Texto del post; máximo 2200 caracteres y 5 hashtags. Sin caption, vacío. Acciones: publish_preview, publish.",
           },
           alt_text: {
             type: "string",

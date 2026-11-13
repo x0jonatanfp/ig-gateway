@@ -211,7 +211,7 @@ run from any directory.
 ## Real Meta API limits
 
 - Photo, reel and story take exactly one media item; carousel takes 2–10. Caption
-  up to 2200 characters and 30 hashtags (20 mentions).
+  up to 2200 characters and 5 hashtags (20 mentions).
 - `alt_text`, `user_tags`, `collaborators` (max 3, not in stories), `cover_url`,
   `thumb_offset`, `audio_name` and `share_to_feed` (reels only) are supported as
   far as each type allows; `location_id` is not allowed in carousels.

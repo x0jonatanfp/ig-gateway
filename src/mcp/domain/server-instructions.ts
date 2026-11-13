@@ -32,7 +32,7 @@ export const IG_SERVER_INSTRUCTIONS = `Publicas en Instagram a través del gatew
 - Tras publicar, si hace falta el permalink, \`media\` o \`publication_status\`.
 
 ## Límites reales y errores
-- Foto, reel e historia: exactamente 1 pieza. Carrusel: 2-10. Caption 2200 caracteres y 30 hashtags (20 menciones).
+- Foto, reel e historia: exactamente 1 pieza. Carrusel: 2-10. Caption 2200 caracteres y 5 hashtags (20 menciones).
 - Colaboradores: máximo 3 y no en historias. \`location_id\` no vale en carrusel. \`share_to_feed\` solo en reels.
 - Cuota de publicación: 100 piezas cada 24 h. No hay programación, ni borradores, ni borrado por API: lo publicado se quita a mano en la app.
 - \`discover\` solo lee cuentas Business/Creator; una cuenta personal o inexistente da \`NOT_FOUND\`. Las \`mediaUrl\`/\`thumbnailUrl\` caducan y los vídeos traen \`thumbnailUrl\`: si hacen falta, descárgalas en el momento.

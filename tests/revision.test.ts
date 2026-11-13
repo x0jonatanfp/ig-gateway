@@ -10,7 +10,7 @@ const account: Account = { id: '1', username: 'test', accessToken: 'token', toke
 
 it('valida límites de caption, Unicode, menciones y saltos de línea', () => {
   expect(Caption.create('x'.repeat(2200))).toBeTruthy(); expect(() => Caption.create('x'.repeat(2201))).toThrow();
-  expect(Caption.create(Array.from({ length: 30 }, (_, i) => `#á${i}`).join(' ')).hashtags).toHaveLength(30); expect(() => Caption.create(Array.from({ length: 31 }, (_, i) => `#tag${i}`).join(' '))).toThrow();
+  expect(Caption.create(Array.from({ length: 5 }, (_, i) => `#á${i}`).join(' ')).hashtags).toHaveLength(5); expect(() => Caption.create(Array.from({ length: 6 }, (_, i) => `#tag${i}`).join(' '))).toThrow();
   expect(Caption.create('@uno @dos\n#repetido #repetido 😊')).toMatchObject({ mentions: ['uno', 'dos'], hashtags: ['repetido', 'repetido'] }); expect(() => Caption.create(Array.from({ length: 21 }, (_, i) => `@user${i}`).join(' '))).toThrow(); expect(Caption.create('').value).toBe('');
 });
 

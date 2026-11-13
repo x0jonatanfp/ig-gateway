@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from "vitest";
 import type { UseCaseDeps } from "../../src/mcp/application/context.js";
 import { runInstagramAction } from "../../src/mcp/application/execute-instagram-action.js";
-import { MAX_CAPTION_CHARS } from "../../src/mcp/domain/media-rules.js";
+import { MAX_CAPTION_CHARS, MAX_HASHTAGS } from "../../src/mcp/domain/media-rules.js";
 import {
   cleanupTempMedia,
   createFakeGateway,
@@ -97,11 +97,17 @@ describe("instagram · límites del caption", () => {
     expect(result.success).toBe(true);
   });
 
-  it("rechaza más de 30 hashtags", async () => {
-    const caption = Array.from({ length: 31 }, (_, i) => `#tag${i}`).join(" ");
+  it(`rechaza más de ${MAX_HASHTAGS} hashtags`, async () => {
+    const caption = Array.from({ length: MAX_HASHTAGS + 1 }, (_, i) => `#tag${i}`).join(" ");
     const result = await previewWith({ media: paths(1), caption });
     expect(result.success).toBe(false);
-    expect(result.text).toContain("31 hashtags");
+    expect(result.text).toContain(`${MAX_HASHTAGS + 1} hashtags`);
+  });
+
+  it(`acepta ${MAX_HASHTAGS} hashtags`, async () => {
+    const caption = Array.from({ length: MAX_HASHTAGS }, (_, i) => `#tag${i}`).join(" ");
+    const result = await previewWith({ media: paths(1), caption });
+    expect(result.success).toBe(true);
   });
 });
 

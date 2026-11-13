@@ -217,7 +217,7 @@ que funciona desde cualquier directorio.
 ## Límites reales de la API de Meta
 
 - Foto, reel e historia llevan exactamente una pieza; el carrusel, de 2 a 10.
-  Caption de hasta 2200 caracteres y 30 hashtags (20 menciones).
+  Caption de hasta 2200 caracteres y 5 hashtags (20 menciones).
 - `alt_text`, `user_tags`, `collaborators` (máximo 3, no en historias),
   `cover_url`, `thumb_offset`, `audio_name` y `share_to_feed` (solo reels) se
   admiten según lo que permita cada tipo; `location_id` no vale en carrusel.
