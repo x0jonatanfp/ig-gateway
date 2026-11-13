@@ -1,0 +1,88 @@
+import { Caption } from '../domain/Caption.js';
+import { hasCapability, mediaCapabilityFor } from '../domain/Account.js';
+import { isQuotaExhausted } from '../domain/Quota.js';
+import { PublicationError } from '../domain/PublicationError.js';
+import { validateMediaType, type MediaType } from '../domain/MediaItem.js';
+import type { AccountResolverPort, InstagramGatewayPort, MediaInput, MediaStagingPort, PublicationLogPort } from '../domain/ports.js';
+
+export interface PublishMediaInput {
+  projectPath: string;
+  media: readonly MediaInput[];
+  caption?: string;
+  type?: MediaType;
+  idempotencyKey?: string;
+  envFile?: string;
+  dryRun?: boolean;
+  altText?: string;
+  userTags?: readonly { username: string; x?: number; y?: number }[];
+  collaborators?: readonly string[];
+  locationId?: string;
+  shareToFeed?: boolean;
+  coverUrl?: string;
+  thumbOffset?: number;
+  audioName?: string;
+}
+
+export class PublishMedia {
+  constructor(
+    private readonly gateway: InstagramGatewayPort,
+    private readonly staging: MediaStagingPort,
+    private readonly resolver: AccountResolverPort,
+    private readonly log: PublicationLogPort,
+    private readonly maxAttempts = 3,
+    /** Espera entre intentos (inyectable para no dormir en los tests). */
+    private readonly sleep: (milliseconds: number) => Promise<void> = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
+    /** Sin espera en el primer intento; luego se espacía para no gastar llamadas a lo tonto. */
+    private readonly retryDelaysMs: readonly number[] = [0, 5_000, 20_000],
+  ) {}
+
+  async execute(input: PublishMediaInput) {
+    if (input.idempotencyKey) {
+      const previous = await this.log.findByIdempotencyKey(input.idempotencyKey);
+      if (previous) return previous;
+    }
+    const account = await this.resolver.resolve(input.projectPath, input.envFile);
+    const type = input.type ?? 'photo';
+    validateMediaType(type, input.media.length);
+    this.validateCapabilities(account, type, input);
+    const quota = await this.gateway.getQuota(account);
+    if (isQuotaExhausted(quota)) throw new PublicationError('Instagram publishing quota exhausted', { code: 'QUOTA_EXHAUSTED', retryable: false });
+
+    const mediaInput = input.media.map((item) => ({ ...item, type, altText: input.altText, userTags: input.userTags, collaborators: input.collaborators, locationId: input.locationId, shareToFeed: input.shareToFeed, coverUrl: input.coverUrl, thumbOffset: input.thumbOffset, audioName: input.audioName }));
+    const staged = await this.staging.stage(mediaInput, input.projectPath);
+    try {
+      const caption = Caption.create(input.caption ?? '');
+      let lastError: unknown;
+      for (let attempt = 1; attempt <= this.maxAttempts; attempt += 1) {
+        const delayMs = this.retryDelaysMs[attempt - 1] ?? this.retryDelaysMs.at(-1) ?? 0;
+        if (delayMs > 0) await this.sleep(delayMs);
+        try {
+          const publication = await this.gateway.publish({ account, type, media: staged, caption, altText: input.altText, userTags: input.userTags, collaborators: input.collaborators, locationId: input.locationId, shareToFeed: input.shareToFeed, coverUrl: input.coverUrl, thumbOffset: input.thumbOffset, audioName: input.audioName, dryRun: input.dryRun });
+          const result = input.idempotencyKey ? { ...publication, idempotencyKey: input.idempotencyKey } : publication;
+          await this.log.append(result);
+          return result;
+        } catch (error) {
+          lastError = error;
+          if (!(error instanceof PublicationError) || !error.retryable || attempt === this.maxAttempts) throw error;
+          await this.log.appendEvent({ event: 'publish_retry', attempt, code: error.code, subcode: error.subcode });
+        }
+      }
+      throw lastError;
+    } finally {
+      await this.staging.cleanup(staged);
+    }
+  }
+
+  private validateCapabilities(account: Parameters<typeof hasCapability>[0], type: MediaType, input: PublishMediaInput): void {
+    if (!hasCapability(account, mediaCapabilityFor(type))) this.rejectCapability(`Account does not support ${type} publications`);
+    if (input.altText !== undefined && !hasCapability(account, 'alt_text')) this.rejectCapability('Account does not support alt text');
+    if (input.userTags !== undefined && !hasCapability(account, 'user_tags')) this.rejectCapability('Account does not support user tags');
+    if (input.collaborators !== undefined && !hasCapability(account, 'collaborators')) this.rejectCapability('Account does not support collaborators');
+    if (input.locationId !== undefined && !hasCapability(account, 'location')) this.rejectCapability('Account does not support locations');
+    if (type === 'story' && input.collaborators?.length) this.rejectCapability('Collaborators are not supported for stories');
+    if (input.collaborators && input.collaborators.length > 3) this.rejectCapability('Instagram supports at most 3 collaborators');
+    if (input.shareToFeed !== undefined && type !== 'reel') this.rejectCapability('share_to_feed is supported only for reels');
+  }
+
+  private rejectCapability(message: string): never { throw new PublicationError(message, { code: 'PERMISSION', retryable: false, status: 403 }); }
+}

@@ -1,0 +1,27 @@
+[Unit]
+Description=IG Gateway — Instagram publishing and moderation
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=180
+StartLimitBurst=15
+
+[Service]
+Type=simple
+User=ig-user
+Group=ig-user
+WorkingDirectory=/opt/ig-gateway
+Environment=LOG_FILE=/var/log/ig-gateway.log
+Environment=NODE_ENV=production
+# Everything the service needs (gateway token, media paths, log path) comes from
+# this file, outside the repository and readable only by the service user.
+EnvironmentFile=/etc/ig-gateway/ig-gateway.env
+ExecStart=/usr/bin/node dist/http/server.js
+Restart=always
+RestartSec=5
+UMask=0077
+TimeoutStopSec=20
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

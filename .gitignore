@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+media/
+*.log
+coverage/
+.DS_Store
+logs/
+
+# Planes y encargos efímeros para agentes delegados (no se versionan)
+tmp/
+
+# Configuración local de despliegue, propia de cada máquina (no se versiona)
+local.mk

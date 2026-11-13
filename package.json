@@ -1,0 +1,31 @@
+{
+  "name": "ig-gateway",
+  "version": "2.2.3",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@10.15.1",
+  "bin": {
+    "ig-gateway": "dist/cli/index.js"
+  },
+  "scripts": {
+    "build": "pnpm typecheck && esbuild src/cli/index.ts src/http/server.ts --bundle --platform=node --format=esm --outdir=dist --packages=external && esbuild src/mcp/index.ts --bundle --platform=node --format=esm --outfile=dist/mcp/ig-mcp.mjs --packages=external",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "express": "^5.1.0",
+    "winston": "^3.19.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.3.0",
+    "@vitest/coverage-v8": "^3.2.7",
+    "esbuild": "^0.25.9",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}
