@@ -60,6 +60,16 @@ export function createFakeGateway() {
         values: [{ value: 8, endTime: "2026-11-09T08:00:00+0000" }],
       },
     ]),
+    getActiveHours: vi.fn(async () => ({
+      timeZone: "Europe/Madrid",
+      days: 27,
+      hours: Array.from({ length: 24 }, (_, hour) => ({ hour, average: hour === 21 ? 62.4 : 40 })),
+      peak: [
+        { hour: 21, average: 62.4 },
+        { hour: 0, average: 40 },
+        { hour: 1, average: 40 },
+      ],
+    })),
     getPublication: vi.fn(async () => ({
       id: "publication-1797",
       type: "photo",

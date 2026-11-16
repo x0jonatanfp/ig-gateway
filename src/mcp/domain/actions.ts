@@ -17,6 +17,7 @@ export const ACTION_PARAMS: Record<string, ActionParamSpec> = {
   quota: { required: [], optional: ["project"], writes: false },
   media: { required: [], optional: ["project", "limit"], writes: false },
   insights: { required: ["media_id"], optional: ["project"], writes: false },
+  active_hours: { required: [], optional: ["project", "timezone"], writes: false },
   comments: { required: ["media_id"], optional: ["project"], writes: false },
   discover: {
     required: ["username"],

@@ -24,6 +24,7 @@ async function connectedClient(): Promise<Client> {
       }),
       listMedia: async () => [],
       getInsights: async () => [],
+      getActiveHours: async () => ({ timeZone: "UTC", days: 0, hours: [], peak: [] }),
       getPublication: async () => ({ id: "p" }),
       discoverAccount: async () => ({ username: "u" }),
       listComments: async () => [],

@@ -37,6 +37,7 @@ export const IG_SERVER_INSTRUCTIONS = `Publicas en Instagram a través del gatew
 - Cuota de publicación: 100 piezas cada 24 h. No hay programación, ni borradores, ni borrado por API: lo publicado se quita a mano en la app.
 - \`discover\` solo lee cuentas Business/Creator; una cuenta personal o inexistente da \`NOT_FOUND\`. Las \`mediaUrl\`/\`thumbnailUrl\` caducan y los vídeos traen \`thumbnailUrl\`: si hacen falta, descárgalas en el momento.
 - \`insights\` devuelve las métricas de una pieza (\`media_id\`, que sale de \`media\`). No inventes métricas ni llames a Meta por tu cuenta.
+- \`active_hours\` da la media de seguidores en línea por hora de los últimos ~30 días (la métrica de seguidores en línea de Meta) en la \`timezone\` que pidas. Meta solo la da con 100 seguidores o más y los dos últimos días suelen llegar vacíos: si no hay datos, dilo; no propongas horas inventadas.
 - Respeta el código del error: AUTHENTICATION y PERMISSION se corrigen en la configuración, no reintentando; RATE_LIMIT, REMOTE_FAILURE y UNREACHABLE sí se pueden reintentar; QUOTA_EXHAUSTED espera a la renovación.
 - Token de Página: el código 190 con subcódigo 460 significa sesión invalidada (cambio de contraseña, app revocada o pérdida del rol en la Página). Se arregla regenerando el token según «Cuentas y credenciales» del README de ig-gateway, no reintentando.
 - El gateway reintenta antes de publicar (3 intentos, 0/5/20 s). Si el fallo ocurre después, comprueba en la cuenta si la pieza salió y lo dice con \`recovered\`; si no puede comprobarlo, avisa para mirar la cuenta.

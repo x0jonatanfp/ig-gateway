@@ -13,6 +13,7 @@ import type {
   PublicationRecord,
   PublishRequestInput,
   QuotaStatus,
+  ActiveHoursRecord,
 } from "../domain/ig-gateway-port.js";
 import type { IgMcpConfig } from "./config.js";
 
@@ -176,6 +177,11 @@ export function createHttpIgGateway(
     async getInsights(project, mediaId) {
       return request<readonly InsightRecord[]>(
         query(`/v1/media/${encodeURIComponent(mediaId)}/insights`, { project }),
+      );
+    },
+    async getActiveHours(project, timezone) {
+      return request<ActiveHoursRecord>(
+        query("/v1/account/active-hours", { project, timezone }),
       );
     },
     async getPublication(id) {

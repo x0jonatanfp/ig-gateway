@@ -93,6 +93,14 @@ export interface InsightRecord {
   values: readonly InsightValue[];
 }
 
+/** Media de seguidores en línea por hora, en la zona pedida (GET /v1/account/active-hours). */
+export interface ActiveHoursRecord {
+  timeZone: string;
+  days: number;
+  hours: readonly { hour: number; average: number }[];
+  peak: readonly { hour: number; average: number }[];
+}
+
 export interface CommentRecord {
   id: string;
   text?: string;
@@ -124,6 +132,7 @@ export interface IgGatewayPort {
     project: string,
     mediaId: string,
   ): Promise<readonly InsightRecord[]>;
+  getActiveHours(project: string, timezone?: string): Promise<ActiveHoursRecord>;
   getPublication(id: string): Promise<PublicationRecord>;
   discoverAccount(
     project: string,

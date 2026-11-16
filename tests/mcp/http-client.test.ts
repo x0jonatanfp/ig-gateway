@@ -82,6 +82,15 @@ describe("cliente HTTP · rutas y cuerpos", () => {
     );
   });
 
+  it("horas activas: GET /v1/account/active-hours con project y timezone", async () => {
+    const { impl, calls } = fakeFetch({ body: { timeZone: "UTC", days: 0, hours: [], peak: [] } });
+    const gateway = createHttpIgGateway(config, { fetchImpl: impl });
+    await gateway.getActiveHours("/p", "Europe/Madrid");
+    expect(calls[0]?.url).toBe(
+      "http://127.0.0.1:4005/v1/account/active-hours?project=%2Fp&timezone=Europe%2FMadrid",
+    );
+  });
+
   it("publicación: GET /v1/publications/:id", async () => {
     const { impl, calls } = fakeFetch({ body: { id: "publication-1" } });
     const gateway = createHttpIgGateway(config, { fetchImpl: impl });

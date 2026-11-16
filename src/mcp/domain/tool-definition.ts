@@ -20,7 +20,7 @@ export const INSTAGRAM_TOOL_DEFINITION = {
   description:
     "Instagram through the local ig-gateway (never talks to Meta). Answers in Spanish. " +
     "Read: check(project?) resolves the account + Meta calls; quota(project?); media(project?,limit?); " +
-    "insights(media_id); comments(media_id); discover(username,project?,limit?) public data of another Business/Creator account; " +
+    "insights(media_id); active_hours(project?,timezone?) average followers online per hour (last ~30 days); comments(media_id); discover(username,project?,limit?) public data of another Business/Creator account; " +
     "publication_status(id). " +
     "Write: publish_preview(media,type?,caption?,alt_text?,user_tags?,collaborators?,location_id?,share_to_feed?,cover_url?) dry run; " +
     "publish(same params + preview_id,confirm:true) requires a preview made in this same process with identical content; " +
@@ -115,6 +115,11 @@ export const INSTAGRAM_TOOL_DEFINITION = {
             type: "boolean",
             description:
               "true confirma la escritura real. Obligatorio en publish, reply_comment y hide_comment.",
+          },
+          timezone: {
+            type: "string",
+            description:
+              "Zona horaria IANA en la que se dan las horas (p. ej. Europe/Madrid; por defecto UTC). Acción: active_hours.",
           },
           media_id: {
             type: "string",

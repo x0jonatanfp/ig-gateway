@@ -77,6 +77,35 @@ describe("instagram · lecturas", () => {
   });
 });
 
+describe("instagram · horas activas", () => {
+  it("active_hours: resumen con las horas punta en la zona pedida", async () => {
+    const gateway = createFakeGateway();
+    const result = await runInstagramAction(makeDeps(gateway), "active_hours", {
+      timezone: "Europe/Madrid",
+    });
+    expect(result.success).toBe(true);
+    expect(result.text).toContain("27 días");
+    expect(result.text).toContain("Europe/Madrid");
+    expect(result.text).toContain("Horas punta: 21:00 (62,4), 00:00 (40), 01:00 (40)");
+    expect(result.text).toContain("21:00  62,4");
+    expect(gateway.getActiveHours).toHaveBeenCalledWith("/proyecto", "Europe/Madrid");
+  });
+
+  it("active_hours: sin días con datos lo dice en vez de inventar horas", async () => {
+    const gateway = createFakeGateway();
+    gateway.getActiveHours.mockResolvedValueOnce({
+      timeZone: "UTC",
+      days: 0,
+      hours: Array.from({ length: 24 }, (_, hour) => ({ hour, average: 0 })),
+      peak: [],
+    });
+    const result = await runInstagramAction(makeDeps(gateway), "active_hours", {});
+    expect(result.success).toBe(true);
+    expect(result.text).toContain("Meta no ha devuelto datos");
+    expect(result.text).toContain("100 seguidores");
+  });
+});
+
 describe("instagram · moderación", () => {
   it("reply_comment exige confirm y responde el texto pedido", async () => {
     const gateway = createFakeGateway();

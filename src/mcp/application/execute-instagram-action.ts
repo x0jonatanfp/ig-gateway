@@ -12,6 +12,7 @@ import type { ToolOutcome } from "../domain/ig-gateway-port.js";
 import { checkAccount } from "./check-account.js";
 import type { UseCaseDeps } from "./context.js";
 import { discoverAccount } from "./discover-account.js";
+import { getActiveHours } from "./get-active-hours.js";
 import { getInsights } from "./get-insights.js";
 import { getQuota } from "./get-quota.js";
 import { listComments } from "./list-comments.js";
@@ -32,6 +33,7 @@ const USE_CASES: Record<string, UseCase> = {
   quota: getQuota,
   media: listMedia,
   insights: getInsights,
+  active_hours: getActiveHours,
   comments: listComments,
   discover: discoverAccount,
   publication_status: publicationStatus,
