@@ -4,6 +4,7 @@ import type { Publication } from '../domain/Publication.js';
 import type { Quota } from '../domain/Quota.js';
 import type { Comment, DiscoveredAccount, InstagramGatewayPort, InstagramMediaItem, MediaInput, MediaStagingPort, PublicationLogPort, PublishRequest, AccountResolverPort, Insight } from '../domain/ports.js';
 import { PublicationError } from '../domain/PublicationError.js';
+import type { OnlineFollowersDay } from '../domain/ActiveHours.js';
 
 export class MemoryGateway implements InstagramGatewayPort {
   account: Account;
@@ -45,6 +46,8 @@ export class MemoryGateway implements InstagramGatewayPort {
     return comment;
   }
   async getInsights(): Promise<readonly Insight[]> { return this.insights; }
+  onlineFollowers: OnlineFollowersDay[] = [];
+  async getOnlineFollowers(): Promise<readonly OnlineFollowersDay[]> { return this.onlineFollowers; }
   async listMedia(): Promise<readonly InstagramMediaItem[]> { return this.media; }
   async discoverAccount(_account: Account, username: string, limit?: number): Promise<DiscoveredAccount> {
     this.lastDiscovery = { username, limit };

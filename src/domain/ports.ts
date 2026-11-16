@@ -1,4 +1,5 @@
 import type { Account } from './Account.js';
+import type { OnlineFollowersDay } from './ActiveHours.js';
 import type { Caption } from './Caption.js';
 import type { MediaItem, MediaType, UserTag } from './MediaItem.js';
 import type { Publication } from './Publication.js';
@@ -87,6 +88,8 @@ export interface InstagramGatewayPort {
   moderateComment(account: Account, mediaId: string, action: 'list' | 'reply' | 'hide' | 'unhide' | 'delete' | 'open' | 'close', value?: string): Promise<Comment | Comment[]>;
   publishStory(request: PublishRequest): Promise<Publication>;
   getInsights(account: Account, mediaId?: string): Promise<readonly Insight[]>;
+  /** Seguidores en línea por hora de los últimos días (`online_followers`). */
+  getOnlineFollowers(account: Account): Promise<readonly OnlineFollowersDay[]>;
   /** Piezas ya publicadas en la cuenta, con su permalink canónico. */
   listMedia(account: Account, limit?: number): Promise<readonly InstagramMediaItem[]>;
   /** Lectura pública de OTRA cuenta Business/Creator por su username (solo lectura). */

@@ -5,6 +5,7 @@ import type { Publication } from '../../domain/Publication.js';
 import { createQuota, type Quota } from '../../domain/Quota.js';
 import { PublicationError, type PublicationErrorCode } from '../../domain/PublicationError.js';
 import type { Comment, DiscoveredAccount, DiscoveredMedia, Insight, InstagramGatewayPort, InstagramMediaItem, PublishRequest } from '../../domain/ports.js';
+import type { OnlineFollowersDay } from '../../domain/ActiveHours.js';
 import { logger } from '../logging/Logger.js';
 
 interface GraphErrorBody { error?: { message?: string; code?: number; error_subcode?: number; fbtrace_id?: string; is_transient?: boolean }; }
@@ -346,6 +347,20 @@ export class GraphClient implements InstagramGatewayPort {
         : totals?.value === undefined ? [] : [{ value: totals.value }];
       return { name: String(entry.name ?? ''), values };
     });
+  }
+
+  /**
+   * Seguidores en línea por hora (`online_followers`). Meta solo guarda 30 días y
+   * sin `since`/`until` devuelve los dos últimos, que suelen llegar vacíos porque
+   * aún no están calculados: se piden 29 días para tener datos de verdad.
+   */
+  async getOnlineFollowers(account: Account): Promise<readonly OnlineFollowersDay[]> {
+    const until = Math.floor(Date.now() / 1000);
+    const since = until - 29 * 86_400;
+    const response = await this.request<GraphResponse>(account, `/${account.id}/insights`, { metric: 'online_followers', period: 'lifetime', since: String(since), until: String(until) });
+    const values = response.data?.[0]?.values;
+    if (!Array.isArray(values)) return [];
+    return (values as Array<{ value?: Record<string, number>; end_time?: string }>).map((item) => ({ endTime: item.end_time ?? '', counts: item.value ?? {} }));
   }
 
   /**

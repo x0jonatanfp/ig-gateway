@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { GraphClient, DiskMediaStaging, EnvAccountResolver, installEnvFile, JsonlPublicationLog } from '../infrastructure/index.js';
-import { CheckAccount, DiscoverAccount, GetInsights, GetQuota, ListMedia, ModerateComment, PublishMedia, PublishStory, SweepStaging } from '../application/index.js';
+import { CheckAccount, DiscoverAccount, GetActiveHours, GetInsights, GetQuota, ListMedia, ModerateComment, PublishMedia, PublishStory, SweepStaging } from '../application/index.js';
 import { PublicationError } from '../domain/PublicationError.js';
 import { toPublicAccount } from '../domain/Account.js';
 import type { UserTag } from '../domain/MediaItem.js';
@@ -44,8 +44,9 @@ async function main(): Promise<unknown> {
     case 'discover': return new DiscoverAccount(d.gateway, d.resolver).execute(get('--account') === undefined ? required('--project') : (get('--project') ?? ''), required('--username'), get('--env-file'), get('--limit') === undefined ? undefined : Number(get('--limit')), get('--account'));
     case 'comments': return new ModerateComment(d.gateway, d.resolver).execute(required('--project'), required('--media'), get('--reply') ? 'reply' : 'list', get('--reply'), get('--env-file'));
     case 'insights': return new GetInsights(d.gateway, d.resolver).execute(required('--project'), get('--media'), get('--env-file'));
+    case 'active-hours': return new GetActiveHours(d.gateway, d.resolver).execute(required('--project'), get('--timezone'), get('--env-file'));
     case 'sweep': return new SweepStaging(d.staging).execute(Number(process.env.IG_STAGING_TTL_HOURS ?? 24) * 60 * 60 * 1000);
-    default: throw new PublicationError('Usage: publish|check|quota|media|discover|comments|insights|sweep', { code: 'INVALID_REQUEST', retryable: false, status: 2 });
+    default: throw new PublicationError('Usage: publish|check|quota|media|discover|comments|insights|active-hours|sweep', { code: 'INVALID_REQUEST', retryable: false, status: 2 });
   }
 }
 

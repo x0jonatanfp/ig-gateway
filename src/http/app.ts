@@ -1,5 +1,5 @@
 import express, { type Request, type Response, type NextFunction } from 'express';
-import { CheckAccount, DiscoverAccount, GetInsights, GetQuota, ListMedia, ModerateComment, PublishMedia, PublishStory } from '../application/index.js';
+import { CheckAccount, DiscoverAccount, GetActiveHours, GetInsights, GetQuota, ListMedia, ModerateComment, PublishMedia, PublishStory } from '../application/index.js';
 import type { MediaInput, InstagramGatewayPort, MediaStagingPort, AccountResolverPort, PublicationLogPort } from '../domain/index.js';
 import { PublicationError } from '../domain/PublicationError.js';
 import { toPublicAccount } from '../domain/Account.js';
@@ -46,6 +46,11 @@ export function createApp(dependencies: HttpDependencies) {
     return { ...toPublicAccount(account), calls };
   }));
   app.get('/v1/quota', asyncRoute(async (request) => new GetQuota(dependencies.gateway, dependencies.resolver).execute(requiredProject(request), queryString(request.query.envFile))));
+  app.get('/v1/account/active-hours', asyncRoute(async (request) => new GetActiveHours(dependencies.gateway, dependencies.resolver).execute(
+    requiredProject(request),
+    queryString(request.query.timezone),
+    queryString(request.query.envFile),
+  )));
   app.get('/v1/media', asyncRoute(async (request) => new ListMedia(dependencies.gateway, dependencies.resolver).execute(
     requiredProject(request),
     queryString(request.query.envFile),

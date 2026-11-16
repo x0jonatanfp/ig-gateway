@@ -1,4 +1,5 @@
 export * from './Account.js';
+export * from './ActiveHours.js';
 export * from './Caption.js';
 export * from './MediaItem.js';
 export * from './Publication.js';

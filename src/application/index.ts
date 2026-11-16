@@ -1,5 +1,6 @@
 export * from './CheckAccount.js';
 export * from './DiscoverAccount.js';
+export * from './GetActiveHours.js';
 export * from './GetInsights.js';
 export * from './GetQuota.js';
 export * from './ListMedia.js';

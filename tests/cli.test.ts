@@ -20,6 +20,12 @@ describe('CLI', () => {
     expect(JSON.parse(result.stderr)).toMatchObject({ error: 'Invalid Instagram username', code: 'INVALID_REQUEST' });
   });
 
+  it('active-hours valida la zona horaria antes de resolver la cuenta', async () => {
+    const result = await runCli(['active-hours', '--project', '/tmp', '--timezone', 'Marte/Olympus', '--json']);
+    expect(result.code).toBe(1);
+    expect(JSON.parse(result.stderr)).toMatchObject({ error: 'Unknown time zone: Marte/Olympus', code: 'INVALID_REQUEST' });
+  });
+
   it('carga el .env de la instalación, no una ruta absoluta', () => {
     // dist/cli/index.js y src/cli/index.ts suben dos niveles hasta la raíz.
     expect(installEnvFile('file:///opt/ig-gateway/dist/cli/index.js')).toBe('/opt/ig-gateway/.env');
