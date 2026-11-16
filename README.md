@@ -15,6 +15,8 @@ server for agents.
 - Publishes photo, carousel (2–10), reel and story.
 - Reads the account, the publishing quota, the media list and the insights of a
   single post.
+- Tells you when the account's followers are online: the average per hour over
+  the last 30 days, in the time zone you ask for.
 - Lists, replies to and hides comments.
 - Reads public data (profile, counters, up to 100 posts) of a **different**
   Business/Creator account through Business Discovery.
@@ -28,7 +30,7 @@ Hexagonal, with dependencies pointing inwards:
 | Directory | Contents |
 | --- | --- |
 | `src/domain/` | Entities, errors and ports (`Account`, `MediaItem`, `Publication`, `PublicationError`, `ports.ts`). Pure logic: no I/O, no config, no logger. |
-| `src/application/` | Use cases that talk only to those ports: `PublishMedia`, `PublishStory`, `CheckAccount`, `GetQuota`, `ListMedia`, `GetInsights`, `DiscoverAccount`, `ModerateComment`, `SweepStaging`. |
+| `src/application/` | Use cases that talk only to those ports: `PublishMedia`, `PublishStory`, `CheckAccount`, `GetQuota`, `ListMedia`, `GetInsights`, `GetActiveHours`, `DiscoverAccount`, `ModerateComment`, `SweepStaging`. |
 | `src/infrastructure/` | Adapters, the only layer that touches the network, the filesystem or Meta: `GraphClient` (Graph API), `DiskMediaStaging` (staged copies), `EnvAccountResolver` (account registry), `JsonlPublicationLog` (publication log), `Logger`. |
 | `src/http/`, `src/cli/`, `src/mcp/` | Three input adapters. Each one is a composition root that wires infrastructure into use cases. |
 
@@ -47,6 +49,7 @@ The server exposes one tool, `instagram`, with `action` plus `params`:
 | `quota` | read | Publishing quota used, total and remaining. |
 | `media` | read | Recent posts with their canonical permalinks. |
 | `insights` | read | Metrics of one post (`media_id`). |
+| `active_hours` | read | Average followers online per hour (last 30 days) in the requested `timezone`. |
 | `comments` | read | Comments of one post. |
 | `discover` | read | Public data of another Business/Creator account. |
 | `publication_status` | read | Status of a publication by its gateway id. |
@@ -274,6 +277,21 @@ download the images; `VIDEO` items carry `thumbnailUrl` instead of `mediaUrl`. A
 personal or nonexistent target gives `NOT_FOUND`. The same is available over
 HTTP as `GET /v1/discovery/:username?project=…&limit=…` and the metrics of one
 post as `GET /v1/media/:id/insights?project=…`.
+
+When followers are online (Meta's `online_followers` metric):
+
+```bash
+node dist/cli/index.js active-hours --project /path/to/project --timezone Europe/Madrid --json
+```
+
+Over HTTP: `GET /v1/account/active-hours?project=…&timezone=…` (UTC when no
+`timezone` is given; an unknown zone gives `INVALID_REQUEST`). It returns the
+average for every hour from 0 to 23, the three peak hours and how many days
+were counted. Meta reports each day in Pacific hours; the gateway converts them
+to the requested zone from the real end of each day, so daylight-saving changes
+never shift anything. Only accounts with 100 or more followers have data, and
+the last two days usually come back empty because Meta has not computed them
+yet.
 
 Never commit real tokens: the resolver reads the calling project's `.env`
 through `--env-file`, `.env` or any `.env.*` holding the supported names.

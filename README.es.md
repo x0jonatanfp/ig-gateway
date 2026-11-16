@@ -16,6 +16,8 @@ un servidor MCP para agentes.
 - Publica foto, carrusel (2–10), reel e historia.
 - Lee la cuenta, la cuota de publicación, la lista de piezas y los insights de
   una pieza.
+- Dice a qué horas están en línea los seguidores de la cuenta: media por hora de
+  los últimos 30 días, en la zona horaria que pidas.
 - Lista, responde y oculta comentarios.
 - Lee los datos públicos (perfil, contadores y hasta 100 piezas) de **otra**
   cuenta Business/Creator mediante Business Discovery.
@@ -29,7 +31,7 @@ Hexagonal, con las dependencias hacia dentro:
 | Directorio | Contenido |
 | --- | --- |
 | `src/domain/` | Entidades, errores y puertos (`Account`, `MediaItem`, `Publication`, `PublicationError`, `ports.ts`). Lógica pura: sin E/S, sin config, sin logger. |
-| `src/application/` | Casos de uso que solo hablan con esos puertos: `PublishMedia`, `PublishStory`, `CheckAccount`, `GetQuota`, `ListMedia`, `GetInsights`, `DiscoverAccount`, `ModerateComment`, `SweepStaging`. |
+| `src/application/` | Casos de uso que solo hablan con esos puertos: `PublishMedia`, `PublishStory`, `CheckAccount`, `GetQuota`, `ListMedia`, `GetInsights`, `GetActiveHours`, `DiscoverAccount`, `ModerateComment`, `SweepStaging`. |
 | `src/infrastructure/` | Adaptadores, la única capa que toca red, disco o Meta: `GraphClient` (Graph API), `DiskMediaStaging` (copias preparadas), `EnvAccountResolver` (registro de cuentas), `JsonlPublicationLog` (registro de publicaciones), `Logger`. |
 | `src/http/`, `src/cli/`, `src/mcp/` | Tres adaptadores de entrada. Cada uno es un composition root que conecta la infraestructura con los casos de uso. |
 
@@ -48,6 +50,7 @@ El servidor expone una única tool, `instagram`, con `action` más `params`:
 | `quota` | lectura | Cuota de publicación usada, total y restante. |
 | `media` | lectura | Últimas piezas con sus permalinks canónicos. |
 | `insights` | lectura | Métricas de una pieza (`media_id`). |
+| `active_hours` | lectura | Media de seguidores en línea por hora (últimos 30 días) en la `timezone` pedida. |
 | `comments` | lectura | Comentarios de una pieza. |
 | `discover` | lectura | Datos públicos de otra cuenta Business/Creator. |
 | `publication_status` | lectura | Estado de una publicación por su id del gateway. |
@@ -279,6 +282,20 @@ debe descargar las imágenes; las piezas `VIDEO` traen `thumbnailUrl` y no
 `mediaUrl`. Un objetivo personal o inexistente da `NOT_FOUND`. Lo mismo está
 disponible por HTTP: `GET /v1/discovery/:username?project=…&limit=…` y las
 métricas de una pieza con `GET /v1/media/:id/insights?project=…`.
+
+Horas activas de los seguidores (métrica `online_followers` de Meta):
+
+```bash
+node dist/cli/index.js active-hours --project /ruta/al/proyecto --timezone Europe/Madrid --json
+```
+
+Por HTTP: `GET /v1/account/active-hours?project=…&timezone=…` (UTC si no se
+pasa `timezone`; una zona que no existe da `INVALID_REQUEST`). Devuelve la media
+de cada hora de 0 a 23, las tres horas punta y cuántos días entran. Meta da cada
+día en horas del Pacífico; el gateway las pasa a la zona pedida a partir del
+final real de cada día, así que los cambios de hora no descuadran nada. Solo
+hay datos en cuentas con 100 seguidores o más, y los dos últimos días suelen
+llegar vacíos porque Meta aún no los ha calculado.
 
 No se deben guardar tokens reales en el repositorio: el resolutor lee el `.env`
 del proyecto llamador mediante `--env-file`, `.env` o cualquier `.env.*` que
