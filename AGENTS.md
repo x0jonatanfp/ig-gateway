@@ -1,71 +1,71 @@
 # AGENTS.md · ig-gateway
 
-Guía para agentes de código. Qué es, cómo se configura, cómo se registra el MCP y cómo se despliega está en `README.md` (y `README.es.md`).
+Guide for coding agents. What it is, how it is configured, how the MCP is registered and how it is deployed is in `README.md` (and `README.es.md`).
 
-## Qué es
+## What it is
 
-Gateway local que publica en Instagram a través de la Graph API de Meta. Un único punto de salida para todos los proyectos: aplica la cuota, el límite de peticiones y el registro de publicaciones. Tiene tres adaptadores de entrada que comparten los mismos casos de uso: HTTP (`src/http/`), CLI (`src/cli/`) y un servidor MCP (`src/mcp/`). El MCP **no** llama a los casos de uso: es un cliente HTTP del servicio en marcha, para que la cuota y el registro estén en un solo sitio.
+Local gateway that publishes to Instagram through Meta's Graph API. A single exit point for all projects: it enforces the quota, the request limit and the publication log. It has three input adapters that share the same use cases: HTTP (`src/http/`), CLI (`src/cli/`) and an MCP server (`src/mcp/`). The MCP **does not** call the use cases: it is an HTTP client of the running service, so that the quota and the log live in one place.
 
-**Publicar es irreversible desde la API.** No hay programación, ni borradores, ni borrado. Trátalo como operación de producción.
+**Publishing is irreversible from the API.** There is no scheduling, no drafts and no deletion. Treat it as a production operation.
 
-## Arquitectura
+## Architecture
 
-Hexagonal en `src/`, con dependencias hacia dentro:
+Hexagonal in `src/`, with dependencies pointing inwards:
 
-- `domain/`: entidades y puertos (`Account.ts`, `MediaItem.ts`, `Publication.ts`, `PublicationError.ts`, `Quota.ts`, `ActiveHours.ts`, `Caption.ts`, `ports.ts`). Lógica pura, sin E/S, sin config y sin logger.
-- `application/`: casos de uso que solo hablan con puertos: `PublishMedia`, `PublishStory`, `CheckAccount`, `GetQuota`, `ListMedia`, `GetInsights`, `GetActiveHours`, `DiscoverAccount`, `ModerateComment`, `SweepStaging`. `memory.ts` es una implementación en memoria para pruebas.
-- `infrastructure/`: el único sitio que toca red, disco o Meta:
-  - `graph/GraphClient.ts`: cliente de la Graph API, con sondeo adaptativo y reintentos.
-  - `staging/DiskMediaStaging.ts`: copias temporales de los medios.
-  - `accounts/EnvAccountResolver.ts`: registro de cuentas por proyecto.
-  - `logging/JsonlPublicationLog.ts` y `Logger.ts`.
+- `domain/`: entities and ports (`Account.ts`, `MediaItem.ts`, `Publication.ts`, `PublicationError.ts`, `Quota.ts`, `ActiveHours.ts`, `Caption.ts`, `ports.ts`). Pure logic, no I/O, no config and no logger.
+- `application/`: use cases that only talk to ports: `PublishMedia`, `PublishStory`, `CheckAccount`, `GetQuota`, `ListMedia`, `GetInsights`, `GetActiveHours`, `DiscoverAccount`, `ModerateComment`, `SweepStaging`. `memory.ts` is an in-memory implementation for tests.
+- `infrastructure/`: the only place that touches the network, the disk or Meta:
+  - `graph/GraphClient.ts`: Graph API client, with adaptive polling and retries.
+  - `staging/DiskMediaStaging.ts`: temporary copies of the media.
+  - `accounts/EnvAccountResolver.ts`: account registry per project.
+  - `logging/JsonlPublicationLog.ts` and `Logger.ts`.
   - `config/InstallEnvFile.ts`.
-- `http/app.ts` y `http/server.ts`: rutas Express (`/health`, `/v1/publications`, `/v1/quota`, `/v1/media`, `/v1/media/:id/insights`, `/v1/media/:id/comments`, `/v1/accounts/check`, `/v1/discovery/:username`, `/v1/account/active-hours`...). Cada ruta compone su caso de uso.
-- `cli/index.ts`: subcomandos de línea de órdenes sobre los mismos casos de uso.
-- `mcp/`: servidor MCP con su propio `domain/` (`ig-gateway-port.ts`, `actions.ts`, `preview.ts`, `media-rules.ts`, `server-instructions.ts`), `application/` (`publish-preview.ts`, `publish.ts`, `execute-instagram-action.ts`, `preview-registry.ts`...) e `infrastructure/config.ts`. Llama al HTTP del servicio.
+- `http/app.ts` and `http/server.ts`: Express routes (`/health`, `/v1/publications`, `/v1/quota`, `/v1/media`, `/v1/media/:id/insights`, `/v1/media/:id/comments`, `/v1/accounts/check`, `/v1/discovery/:username`, `/v1/account/active-hours`...). Each route composes its use case.
+- `cli/index.ts`: command-line subcommands over the same use cases.
+- `mcp/`: MCP server with its own `domain/` (`ig-gateway-port.ts`, `actions.ts`, `preview.ts`, `media-rules.ts`, `server-instructions.ts`), `application/` (`publish-preview.ts`, `publish.ts`, `execute-instagram-action.ts`, `preview-registry.ts`...) and `infrastructure/config.ts`. It calls the service's HTTP.
 
-Flujo de publicación: el caso de uso valida el medio y el caption → la cuota → `GraphClient` crea el contenedor, sondea hasta `FINISHED` y llama a `media_publish` → la publicación queda en el registro JSONL. En el MCP, `publish-preview` devuelve un `preview_id` y `publish` exige ese mismo contenido.
+Publishing flow: the use case validates the media and the caption → the quota → `GraphClient` creates the container, polls until `FINISHED` and calls `media_publish` → the publication is recorded in the JSONL log. In the MCP, `publish-preview` returns a `preview_id` and `publish` requires that same content.
 
-## Comandos
+## Commands
 
-| Comando | Qué hace |
+| Command | What it does |
 | --- | --- |
-| `pnpm install` | Instala dependencias (`--frozen-lockfile` en el Makefile). |
-| `pnpm build` | Typecheck y esbuild a `dist/` (CLI, HTTP y `dist/mcp/ig-mcp.mjs`). |
+| `pnpm install` | Installs dependencies (`--frozen-lockfile` in the Makefile). |
+| `pnpm build` | Typecheck and esbuild to `dist/` (CLI, HTTP and `dist/mcp/ig-mcp.mjs`). |
 | `pnpm typecheck` | `tsc --noEmit`. |
 | `pnpm test` / `test:coverage` / `test:watch` | Vitest. |
-| `make deploy` | Depende de `release`: versionado y `git push --follow-tags`. Después build, sincroniza `dist/` y reinstala dependencias de producción en el destino, y reinicia la unidad. **Usa `sudo` y publica en remoto. No lo lances sin orden expresa.** |
-| `make restart` | Reinicia la unidad (`sudo`). |
-| `make release` | Exige árbol limpio, ejecuta `commit-and-tag-version` y hace push. |
+| `make deploy` | Depends on `release`: versioning and `git push --follow-tags`. Then build, syncs `dist/`, reinstalls production dependencies at the destination, and restarts the unit. **Uses `sudo` and publishes to the remote. Do not run it without an explicit order.** |
+| `make restart` | Restarts the unit (`sudo`). |
+| `make release` | Requires a clean tree, runs `commit-and-tag-version` and pushes. |
 
-`-include local.mk` en el Makefile permite una configuración de despliegue local. `local.mk` está ignorado por git: no lo versiones.
+`-include local.mk` in the Makefile allows a local deployment configuration. `local.mk` is ignored by git: do not version it.
 
-## Cómo probar un cambio
+## How to test a change
 
-- Tests en `*.test.ts` (24 ficheros), con Vitest. Los casos de uso se prueban con `memory.ts` y dobles de los puertos.
-- Para ejercitar la publicación **sin** llamar a `media_publish`, usa el modo seco: `IG_DRY_RUN` (ver el README, sección de desarrollo). Nunca pruebes publicaciones reales en los tests.
-- Antes de dar un cambio por bueno: `pnpm test && pnpm typecheck && pnpm build`.
-- Cada acción nueva, validación o bug corregido lleva su test en el mismo cambio.
+- Tests in `*.test.ts` (24 files), with Vitest. The use cases are tested with `memory.ts` and doubles of the ports.
+- To exercise publishing **without** calling `media_publish`, use dry-run mode: `IG_DRY_RUN` (see the README, development section). Never test real publications in the tests.
+- Before accepting a change: `pnpm test && pnpm typecheck && pnpm build`.
+- Every new action, validation or fixed bug comes with its test in the same change.
 
-## Convenciones
+## Conventions
 
-- TypeScript ESM (`"type": "module"`) con Express 5, winston y el SDK de MCP. Código en inglés, nombres de clases en PascalCase, ficheros en PascalCase en `application/` e `infrastructure/`.
-- Las reglas de la API de Meta viven en `domain/` y en `mcp/domain/media-rules.ts`. Antes de cambiarlas, comprueba la documentación actual de Meta con la herramienta de docs que tengas disponible.
-- Versión y `CHANGELOG.md`: `commit-and-tag-version` con `make release`. **No se editan a mano.**
-- Configuración por entorno (`.env`, no versionado, a partir de `.env.example`). Los tokens de Meta nunca van al repo ni a logs.
+- TypeScript ESM (`"type": "module"`) with Express 5, winston and the MCP SDK. Code in English, class names in PascalCase, files in PascalCase in `application/` and `infrastructure/`.
+- Meta's API rules live in `domain/` and in `mcp/domain/media-rules.ts`. Before changing them, check Meta's current documentation with the docs tool you have available.
+- Version and `CHANGELOG.md`: `commit-and-tag-version` with `make release`. **Not edited by hand.**
+- Environment configuration (`.env`, not versioned, based on `.env.example`). Meta tokens never go into the repo or into logs.
 
-## Decisiones y trampas
+## Decisions and pitfalls
 
-- **Sin programación.** `published=false` con `scheduled_publish_time` devuelve error. La programación es responsabilidad de cada proyecto (cron o cola), no del gateway.
-- **Reintentos solo antes de publicar.** Los reintentos (0 s, 5 s, 20 s) cubren solo fallos anteriores a `media_publish`. Después de publicar, no se reintenta nunca.
-- **Verificación del resultado desconocido.** Si `media_publish` falla, el gateway comprueba la cuenta: si la publicación salió, responde como publicada con `recovered: true`. No reintentes a ciegas.
-- **Límite de peticiones de la app.** Es distinto de la cuota de publicación (100 cada 24 h). El gateway aplica un freno propio (`IG_MAX_CALLS_PER_MINUTE`) y una caché de cuota (`IG_QUOTA_TTL_MS`).
-- **Tope de hashtags.** Se bajó de 30 a 5 (commit `1f4bec7`), que es el límite real de la API.
-- **Errores de entrada.** Una entrada inválida responde 400, no 500 (commit `cea7445`).
-- **MCP sin acceso directo.** No añadas una llamada del MCP a un caso de uso: rompería la cuota y el registro únicos.
-- **Dependencia de dominio.** `domain/` no importa infraestructura; `application/` solo importa de `domain/`. Mantenlo al añadir código.
+- **No scheduling.** `published=false` with `scheduled_publish_time` returns an error. Scheduling is the responsibility of each project (cron or queue), not of the gateway.
+- **Retries only before publishing.** The retries (0 s, 5 s, 20 s) cover only failures before `media_publish`. After publishing, it is never retried.
+- **Verifying an unknown result.** If `media_publish` fails, the gateway checks the account: if the publication went out, it responds as published with `recovered: true`. Do not retry blindly.
+- **App request limit.** It is different from the publishing quota (100 every 24 h). The gateway applies its own throttle (`IG_MAX_CALLS_PER_MINUTE`) and a quota cache (`IG_QUOTA_TTL_MS`).
+- **Hashtag cap.** Lowered from 30 to 5 (commit `1f4bec7`), which is the real limit of the API.
+- **Input errors.** An invalid input responds 400, not 500 (commit `cea7445`).
+- **MCP without direct access.** Do not add an MCP call to a use case: it would break the single quota and log.
+- **Domain dependency.** `domain/` does not import infrastructure; `application/` only imports from `domain/`. Keep it that way when adding code.
 
-## Mantenimiento
+## Maintenance
 
-- Este fichero y el `README.md` se actualizan en el mismo cambio que los deja obsoletos.
-- Aquí solo va lo que puede ser público: nada de rutas locales, puertos de la máquina, IPs, perfiles de secretos ni datos personales.
+- This file and the `README.md` are updated in the same change that makes them outdated.
+- Only publishable content goes here: no local paths, machine ports, IPs, secret profiles or personal data.
