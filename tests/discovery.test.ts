@@ -23,7 +23,7 @@ const target = (media: unknown[], after?: string) => ({
 });
 
 describe('Business Discovery', () => {
-  it('consulta graph.facebook.com con el token de Página y mapea el perfil y las piezas', async () => {
+  it('queries graph.facebook.com with the Page token and maps profile and items', async () => {
     const { calls, fetcher } = sequence([target([
       { id: '1', media_type: 'IMAGE', media_url: 'https://cdn.test/1.jpg', permalink: 'https://www.instagram.com/p/a/', timestamp: '2026-10-01T10:00:00+0000', like_count: 5, comments_count: 1, caption: 'hola' },
       { id: '2', media_type: 'VIDEO', thumbnail_url: 'https://cdn.test/2.jpg', permalink: 'https://www.instagram.com/reel/b/' },
@@ -43,7 +43,7 @@ describe('Business Discovery', () => {
     ]);
   });
 
-  it('pagina con cursores hasta el límite pedido y no pide más', async () => {
+  it('paginates with cursors up to the requested limit and stops', async () => {
     const page = (ids: string[], after?: string) => target(ids.map((id) => ({ id, permalink: `https://www.instagram.com/p/${id}/` })), after);
     const { calls, fetcher } = sequence([page(['1', '2'], 'cur-1'), page(['3', '4'], 'cur-2')]);
     const result = await new GraphClient({ fetcher }).discoverAccount(account, 'example_brand', 3);
@@ -52,30 +52,30 @@ describe('Business Discovery', () => {
     expect(calls[1]?.searchParams.get('fields')).toContain('.after(cur-1)');
   });
 
-  it('limita a 25 piezas por página y a 100 en total', async () => {
+  it('caps at 25 items per page and 100 in total', async () => {
     const { calls, fetcher } = sequence([target([])]);
     await new GraphClient({ fetcher }).discoverAccount(account, 'example_brand', 500);
     expect(calls[0]?.searchParams.get('fields')).toContain('media.limit(25)');
   });
 
-  it('traduce «Invalid user id» a cuenta no encontrada o no profesional', async () => {
+  it('maps "Invalid user id" to a missing or non-professional account', async () => {
     const { fetcher } = sequence([{ error: { message: 'Invalid user id', code: 110, error_subcode: 2207013, fbtrace_id: 'trace' } }], 400);
     await expect(new GraphClient({ fetcher }).discoverAccount(account, 'personal')).rejects.toMatchObject({ code: 'NOT_FOUND', status: 404, subcode: 2207013, retryable: false });
   });
 
-  it('deja pasar el error de permisos de Meta sin reinterpretarlo', async () => {
+  it('lets Meta permission errors through without remapping', async () => {
     const { fetcher } = sequence([{ error: { message: '(#10) Application does not have permission for this action', code: 10 } }], 400);
     await expect(new GraphClient({ fetcher }).discoverAccount(account, 'example_brand')).rejects.toMatchObject({ code: 'PERMISSION', retryable: false });
   });
 
-  it('falla con NOT_FOUND si Meta no devuelve business_discovery', async () => {
+  it('fails with NOT_FOUND when Meta returns no business_discovery', async () => {
     const { fetcher } = sequence([{ id: 'ig-1' }]);
     await expect(new GraphClient({ fetcher }).discoverAccount(account, 'example_brand')).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
 });
 
 describe('DiscoverAccount', () => {
-  it('quita la @, pasa el límite y usa la credencial de Facebook', async () => {
+  it('strips @, passes the limit and uses the Facebook credential', async () => {
     const gateway = new MemoryGateway(account);
     const resolver = new MemoryAccountResolver(account);
     const spy = vi.spyOn(resolver, 'resolve');
@@ -84,18 +84,18 @@ describe('DiscoverAccount', () => {
     expect(spy).toHaveBeenCalledWith('/tmp/project', '/tmp/.env', undefined);
   });
 
-  it('pasa la cuenta del registro cuando se indica --account', async () => {
+  it('passes the registry account when --account is given', async () => {
     const resolver = new MemoryAccountResolver(account);
     const spy = vi.spyOn(resolver, 'resolve');
     await new DiscoverAccount(new MemoryGateway(account), resolver).execute('', 'example_brand', undefined, undefined, 'example_studio');
     expect(spy).toHaveBeenCalledWith('', undefined, 'example_studio');
   });
 
-  it.each(['', 'con espacios', 'a'.repeat(31), 'bad/user'])('rechaza el usuario %j', async (username) => {
+  it.each(['', 'con espacios', 'a'.repeat(31), 'bad/user'])('rejects the username %j', async (username) => {
     await expect(new DiscoverAccount(new MemoryGateway(account), new MemoryAccountResolver(account)).execute('/tmp', username)).rejects.toMatchObject({ code: 'INVALID_REQUEST' });
   });
 
-  it('rechaza un límite negativo o no entero', async () => {
+  it('rejects a negative or non-integer limit', async () => {
     const useCase = new DiscoverAccount(new MemoryGateway(account), new MemoryAccountResolver(account));
     await expect(useCase.execute('/tmp', 'example_brand', undefined, -1)).rejects.toBeInstanceOf(PublicationError);
     await expect(useCase.execute('/tmp', 'example_brand', undefined, 1.5)).rejects.toBeInstanceOf(PublicationError);
@@ -103,7 +103,7 @@ describe('DiscoverAccount', () => {
 });
 
 describe('GET /v1/discovery/:username', () => {
-  it('devuelve el perfil y las piezas', async () => {
+  it('returns the profile and items', async () => {
     const gateway = new MemoryGateway(account);
     gateway.discovered = { username: 'example_brand', followersCount: 10, mediaCount: 2, media: [{ id: '1', permalink: 'https://www.instagram.com/p/a/', caption: '' }] };
     const server = createServer(createApp({ gateway, staging: new MemoryStaging(), resolver: new MemoryAccountResolver(account), log: new MemoryLog(), authToken: 'gateway-secret', rateLimit: 5 }));

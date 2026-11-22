@@ -44,20 +44,20 @@ async function connectedClient(): Promise<Client> {
   return client;
 }
 
-describe("instrucciones del servidor (estándar MCP)", () => {
-  it("el cliente las recibe en initialize con getInstructions()", async () => {
+describe("server instructions (MCP standard)", () => {
+  it("client receives them on initialize with getInstructions()", async () => {
     const client = await connectedClient();
     expect(client.getInstructions()).toBe(IG_SERVER_INSTRUCTIONS);
     await client.close();
   });
 
-  it("no pasan de 8 KB: van en el prompt de cada turno", () => {
+  it("stay under 8 KB: they ride every turn prompt", () => {
     expect(Buffer.byteLength(IG_SERVER_INSTRUCTIONS, "utf8")).toBeLessThan(
       8 * 1024,
     );
   });
 
-  it("nombran todas las acciones del MCP", () => {
+  it("name every MCP action", () => {
     for (const action of VALID_ACTIONS) {
       expect(
         new RegExp(`\\b${action}\\b`).test(IG_SERVER_INSTRUCTIONS),
@@ -66,7 +66,7 @@ describe("instrucciones del servidor (estándar MCP)", () => {
     }
   });
 
-  it("cada identificador con guion bajo citado es una acción o un parámetro", () => {
+  it("every quoted snake_case name is an action or a param", () => {
     const named =
       IG_SERVER_INSTRUCTIONS.match(/\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/g) ?? [];
     expect(named.length).toBeGreaterThan(5);
@@ -78,7 +78,7 @@ describe("instrucciones del servidor (estándar MCP)", () => {
     }
   });
 
-  it("conserva las reglas clave de uso", () => {
+  it("keeps the key usage rules", () => {
     for (const fragment of [
       "publish_preview",
       "recovered",
@@ -97,7 +97,7 @@ describe("instrucciones del servidor (estándar MCP)", () => {
     }
   });
 
-  it("no contiene secretos ni chat_id", () => {
+  it("contains no secrets or chat_id", () => {
     expect(IG_SERVER_INSTRUCTIONS).not.toMatch(/chat_id/i);
     // Tokens largos (hex o base64) y asignaciones de credenciales.
     expect(IG_SERVER_INSTRUCTIONS).not.toMatch(/[A-Fa-f0-9]{32,}/);

@@ -14,7 +14,7 @@ function depsFailing(error: unknown) {
   return makeDeps(gateway);
 }
 
-describe("errores del gateway por código", () => {
+describe("gateway errors by code", () => {
   const cases: Array<{
     code: GatewayErrorCode;
     expectRetry: boolean;
@@ -37,7 +37,7 @@ describe("errores del gateway por código", () => {
   ];
 
   for (const { code, expectRetry, fragment } of cases) {
-    it(`${code}: texto en español y reintentabilidad`, async () => {
+    it(`${code}: Spanish text and retryability`, async () => {
       const result = await runInstagramAction(
         depsFailing(
           new GatewayError("detail", { code, retryable: expectRetry }),
@@ -55,7 +55,7 @@ describe("errores del gateway por código", () => {
     });
   }
 
-  it("incluye el subcódigo cuando lo hay", () => {
+  it("includes the subcode when present", () => {
     const text = describeGatewayError(
       new GatewayError("session invalidated", {
         code: "AUTHENTICATION",
@@ -66,7 +66,7 @@ describe("errores del gateway por código", () => {
     expect(text).toContain("subcódigo 460");
   });
 
-  it("un fallo de configuración no se presenta como error del gateway", async () => {
+  it("a configuration failure is not reported as a gateway error", async () => {
     const result = await runInstagramAction(
       depsFailing(
         new ConfigurationError("Falta IG_GATEWAY_TOKEN: define la variable."),
@@ -79,7 +79,7 @@ describe("errores del gateway por código", () => {
     expect(result.text).not.toContain("Error [");
   });
 
-  it("un error inesperado no filtra objetos internos", async () => {
+  it("an unexpected error does not leak internals", async () => {
     const result = await runInstagramAction(
       depsFailing(new Error("boom")),
       "quota",
@@ -88,7 +88,7 @@ describe("errores del gateway por código", () => {
     expect(result.text).toContain("Error inesperado: boom");
   });
 
-  it("las respuestas no nombran la cabecera del token", async () => {
+  it("responses never name the token header", async () => {
     // El token solo existe en el adaptador HTTP: ni la aplicación ni los
     // casos de uso lo reciben, así que no puede acabar en una respuesta.
     const result = await runInstagramAction(

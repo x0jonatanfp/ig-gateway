@@ -6,26 +6,26 @@ import {
 } from "../../src/mcp/infrastructure/mcp-server.js";
 import { createFakeGateway, makeDeps } from "./helpers.js";
 
-describe("arranque del servidor", () => {
-  it("expone exactamente la tool instagram", () => {
+describe("server startup", () => {
+  it("exposes exactly the instagram tool", () => {
     const tools = listInstagramTools();
     expect(tools.map((tool) => tool.name)).toEqual([INSTAGRAM_TOOL_NAME]);
     expect(INSTAGRAM_TOOL_NAME).toBe("instagram");
   });
 
-  it("publica el peor caso: la tool escribe", () => {
+  it("publishes the worst case: the tool writes", () => {
     expect(listInstagramTools()[0]!.annotations).toMatchObject({
       readOnlyHint: false,
     });
   });
 
-  it("la tool trae descripción y esquema", () => {
+  it("tool carries description and schema", () => {
     const tool = listInstagramTools()[0]!;
     expect(tool.description.length).toBeGreaterThan(0);
     expect(tool.inputSchema).toMatchObject({ type: "object" });
   });
 
-  it("despacha quota y marca error si falta la acción", async () => {
+  it("dispatches quota and flags a missing action", async () => {
     const ok = await callInstagramTool(makeDeps(createFakeGateway()), {
       action: "quota",
       params: {},

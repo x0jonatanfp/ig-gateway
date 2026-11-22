@@ -31,8 +31,8 @@ async function preview(gateway = createFakeGateway()) {
   };
 }
 
-describe("instagram · publish_preview", () => {
-  it("llama al gateway con dryRun y no publica nada", async () => {
+describe("instagram publish_preview", () => {
+  it("calls the gateway with dryRun and publishes nothing", async () => {
     const { gateway, path, result } = await preview();
     expect(result.success).toBe(true);
     expect(result.text).toContain("No se ha publicado nada");
@@ -46,7 +46,7 @@ describe("instagram · publish_preview", () => {
     expect(input.type).toBe("photo");
   });
 
-  it("el hash cambia con cada opción que define el post", () => {
+  it("hash changes with every option that defines the post", () => {
     const base = {
       project: "/p",
       media: ["/a.png"],
@@ -63,8 +63,8 @@ describe("instagram · publish_preview", () => {
   });
 });
 
-describe("instagram · publish (guardas)", () => {
-  it("sin preview_id no publica", async () => {
+describe("instagram publish (guards)", () => {
+  it("without preview_id it does not publish", async () => {
     const gateway = createFakeGateway();
     const result = await runInstagramAction(makeDeps(gateway), "publish", {
       media: [tempMedia()],
@@ -76,7 +76,7 @@ describe("instagram · publish (guardas)", () => {
     expect(gateway.publish).not.toHaveBeenCalled();
   });
 
-  it("con preview_id desconocido no publica", async () => {
+  it("with unknown preview_id it does not publish", async () => {
     const gateway = createFakeGateway();
     const result = await runInstagramAction(makeDeps(gateway), "publish", {
       media: [tempMedia()],
@@ -89,7 +89,7 @@ describe("instagram · publish (guardas)", () => {
     expect(gateway.publish).not.toHaveBeenCalled();
   });
 
-  it("con contenido distinto del preview no publica", async () => {
+  it("with content differing from the preview it does not publish", async () => {
     const { deps, gateway, path, previewId } = await preview();
     const result = await runInstagramAction(deps, "publish", {
       media: [path],
@@ -102,7 +102,7 @@ describe("instagram · publish (guardas)", () => {
     expect(gateway.publish).toHaveBeenCalledTimes(1);
   });
 
-  it("con el mismo contenido pero el type cambiado no publica", async () => {
+  it("with same content but changed type it does not publish", async () => {
     const { deps, gateway, path, previewId } = await preview();
     const result = await runInstagramAction(deps, "publish", {
       media: [path],
@@ -116,7 +116,7 @@ describe("instagram · publish (guardas)", () => {
     expect(gateway.publish).toHaveBeenCalledTimes(1);
   });
 
-  it("sin confirm no publica aunque el preview exista", async () => {
+  it("without confirm it does not publish even with a preview", async () => {
     const { deps, gateway, path, previewId } = await preview();
     const result = await runInstagramAction(deps, "publish", {
       media: [path],
@@ -129,8 +129,8 @@ describe("instagram · publish (guardas)", () => {
   });
 });
 
-describe("instagram · publish (camino feliz)", () => {
-  it("publica con dryRun false y la idempotencyKey derivada del hash", async () => {
+describe("instagram publish (happy path)", () => {
+  it("publishes with dryRun false and the hash-derived idempotencyKey", async () => {
     const { deps, gateway, path, previewId } = await preview();
     const result = await runInstagramAction(deps, "publish", {
       media: [path],
@@ -150,7 +150,7 @@ describe("instagram · publish (camino feliz)", () => {
     expect(input.media).toEqual([path]);
   });
 
-  it("el preview de una instancia no vale en otra (registro por proceso)", async () => {
+  it("a preview from one instance is invalid in another (per-process registry)", async () => {
     const { path, previewId } = await preview();
     const other = createFakeGateway();
     const result = await runInstagramAction(makeDeps(other), "publish", {

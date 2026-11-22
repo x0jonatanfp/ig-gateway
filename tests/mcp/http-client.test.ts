@@ -33,8 +33,8 @@ const config = {
   token: "token-de-prueba",
 };
 
-describe("cliente HTTP · rutas y cuerpos", () => {
-  it("quota: GET con project en la query y cabecera del token", async () => {
+describe("HTTP client routes and bodies", () => {
+  it("quota: GET with project in the query and token header", async () => {
     const { impl, calls } = fakeFetch({
       body: { quotaUsage: 1, quotaTotal: 100, quotaRemaining: 99 },
     });
@@ -49,7 +49,7 @@ describe("cliente HTTP · rutas y cuerpos", () => {
     );
   });
 
-  it("check: POST /v1/accounts/check con project", async () => {
+  it("check: POST /v1/accounts/check with project", async () => {
     const { impl, calls } = fakeFetch({ body: { id: "1", username: "u" } });
     const gateway = createHttpIgGateway(config, { fetchImpl: impl });
     await gateway.checkAccount("/p");
@@ -58,7 +58,7 @@ describe("cliente HTTP · rutas y cuerpos", () => {
     expect(JSON.parse(String(calls[0]?.init.body))).toEqual({ project: "/p" });
   });
 
-  it("media y discovery: limit en la query", async () => {
+  it("media and discovery: limit in the query", async () => {
     const { impl, calls } = fakeFetch({ body: [] });
     const gateway = createHttpIgGateway(config, { fetchImpl: impl });
     await gateway.listMedia("/p", 5);
@@ -71,7 +71,7 @@ describe("cliente HTTP · rutas y cuerpos", () => {
     );
   });
 
-  it("insights: GET /v1/media/:id/insights con project", async () => {
+  it("insights: GET /v1/media/:id/insights with project", async () => {
     const { impl, calls } = fakeFetch({
       body: [{ name: "reach", values: [{ value: 5 }] }],
     });
@@ -82,7 +82,7 @@ describe("cliente HTTP · rutas y cuerpos", () => {
     );
   });
 
-  it("horas activas: GET /v1/account/active-hours con project y timezone", async () => {
+  it("active hours: GET /v1/account/active-hours with project and timezone", async () => {
     const { impl, calls } = fakeFetch({ body: { timeZone: "UTC", days: 0, hours: [], peak: [] } });
     const gateway = createHttpIgGateway(config, { fetchImpl: impl });
     await gateway.getActiveHours("/p", "Europe/Madrid");
@@ -91,7 +91,7 @@ describe("cliente HTTP · rutas y cuerpos", () => {
     );
   });
 
-  it("publicación: GET /v1/publications/:id", async () => {
+  it("publication: GET /v1/publications/:id", async () => {
     const { impl, calls } = fakeFetch({ body: { id: "publication-1" } });
     const gateway = createHttpIgGateway(config, { fetchImpl: impl });
     await gateway.getPublication("publication-1");
@@ -100,7 +100,7 @@ describe("cliente HTTP · rutas y cuerpos", () => {
     );
   });
 
-  it("comentarios: listar y responder", async () => {
+  it("comments: list and reply", async () => {
     const { impl, calls } = fakeFetch({ body: [] });
     const gateway = createHttpIgGateway(config, { fetchImpl: impl });
     await gateway.listComments("/p", "1797");
@@ -115,7 +115,7 @@ describe("cliente HTTP · rutas y cuerpos", () => {
     });
   });
 
-  it("ocultar: POST con action hide sobre el id del comentario", async () => {
+  it("hide: POST with action hide on the comment id", async () => {
     const { impl, calls } = fakeFetch({ body: { id: "c-1" } });
     const gateway = createHttpIgGateway(config, { fetchImpl: impl });
     await gateway.hideComment("/p", "c-1");
@@ -126,7 +126,7 @@ describe("cliente HTTP · rutas y cuerpos", () => {
     });
   });
 
-  it("publicar: cuerpo real del gateway con media, dryRun e idempotencyKey", async () => {
+  it("publish: real gateway body with media, dryRun and idempotencyKey", async () => {
     const { impl, calls } = fakeFetch({
       status: 201,
       body: { id: "publication-1", status: "published" },
@@ -158,8 +158,8 @@ describe("cliente HTTP · rutas y cuerpos", () => {
   });
 });
 
-describe("cliente HTTP · errores", () => {
-  it("sin token falla como configuración y no llama a fetch", async () => {
+describe("HTTP client errors", () => {
+  it("without token fails as configuration and never calls fetch", async () => {
     const { impl, calls } = fakeFetch({ body: {} });
     const gateway = createHttpIgGateway(
       { gatewayUrl: "http://127.0.0.1:4005", token: undefined },
@@ -171,7 +171,7 @@ describe("cliente HTTP · errores", () => {
     expect(calls).toHaveLength(0);
   });
 
-  it("401 sin cuerpo de error se traduce a AUTHENTICATION", async () => {
+  it("401 without error body maps to AUTHENTICATION", async () => {
     const { impl } = fakeFetch({
       status: 401,
       body: { error: "Unauthorized" },
@@ -185,7 +185,7 @@ describe("cliente HTTP · errores", () => {
     );
   });
 
-  it("respeta el código y el retryable que manda el gateway", async () => {
+  it("honours the code and retryable sent by the gateway", async () => {
     const { impl } = fakeFetch({
       status: 502,
       body: {
@@ -202,7 +202,7 @@ describe("cliente HTTP · errores", () => {
     expect(error.retryable).toBe(false);
   });
 
-  it("429 es RATE_LIMIT reintentable", async () => {
+  it("429 is retryable RATE_LIMIT", async () => {
     const { impl } = fakeFetch({ status: 429, body: { error: "slow down" } });
     const gateway = createHttpIgGateway(config, { fetchImpl: impl });
     const error = (await gateway
@@ -212,7 +212,7 @@ describe("cliente HTTP · errores", () => {
     expect(error.retryable).toBe(true);
   });
 
-  it("5xx sin código es REMOTE_FAILURE reintentable", async () => {
+  it("codeless 5xx is retryable REMOTE_FAILURE", async () => {
     const { impl } = fakeFetch({ status: 500, raw: "no json" });
     const gateway = createHttpIgGateway(config, { fetchImpl: impl });
     const error = (await gateway
@@ -222,7 +222,7 @@ describe("cliente HTTP · errores", () => {
     expect(error.retryable).toBe(true);
   });
 
-  it("fallo de red es UNREACHABLE y no expone el token", async () => {
+  it("network failure is UNREACHABLE and never leaks the token", async () => {
     const { impl } = fakeFetch({ throws: new Error("ECONNREFUSED") });
     const gateway = createHttpIgGateway(config, { fetchImpl: impl });
     const error = (await gateway
@@ -234,7 +234,7 @@ describe("cliente HTTP · errores", () => {
     expect(text).toContain("127.0.0.1:4005");
   });
 
-  it("timeout es REMOTE_FAILURE reintentable", async () => {
+  it("timeout is retryable REMOTE_FAILURE", async () => {
     const timeout = new Error("The operation was aborted due to timeout");
     timeout.name = "TimeoutError";
     const { impl } = fakeFetch({ throws: timeout });
@@ -246,7 +246,7 @@ describe("cliente HTTP · errores", () => {
     expect(error.retryable).toBe(true);
   });
 
-  it("el token jamás viaja en el cuerpo ni en el mensaje de error", async () => {
+  it("token never travels in the body or the error message", async () => {
     const { impl, calls } = fakeFetch({
       status: 403,
       body: { error: "forbidden", code: "PERMISSION", retryable: false },

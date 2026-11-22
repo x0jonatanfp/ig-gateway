@@ -4,8 +4,8 @@ import { cleanupTempMedia, createFakeGateway, makeDeps } from "./helpers.js";
 
 afterAll(cleanupTempMedia);
 
-describe("instagram · lecturas", () => {
-  it("check: cuenta, contadores y llamadas a Meta", async () => {
+describe("instagram reads", () => {
+  it("check: account, counters and Meta calls", async () => {
     const gateway = createFakeGateway();
     const result = await runInstagramAction(makeDeps(gateway), "check", {});
     expect(result.success).toBe(true);
@@ -15,7 +15,7 @@ describe("instagram · lecturas", () => {
     expect(gateway.checkAccount).toHaveBeenCalledWith("/proyecto");
   });
 
-  it("quota: usada, total, restante y periodo", async () => {
+  it("quota: used, total, remaining and period", async () => {
     const result = await runInstagramAction(makeDeps(), "quota", {});
     expect(result.success).toBe(true);
     expect(result.text).toContain("1/100 usada");
@@ -23,7 +23,7 @@ describe("instagram · lecturas", () => {
     expect(result.text).toContain("periodo 24 h");
   });
 
-  it("media: permalink, tipo y fecha", async () => {
+  it("media: permalink, type and date", async () => {
     const result = await runInstagramAction(makeDeps(), "media", {
       limit: 5,
     });
@@ -33,7 +33,7 @@ describe("instagram · lecturas", () => {
     expect(result.text).toContain("https://www.instagram.com/p/EXAMPLE/");
   });
 
-  it("comments: id, autor y texto", async () => {
+  it("comments: id, author and text", async () => {
     const result = await runInstagramAction(makeDeps(), "comments", {
       media_id: "1797",
     });
@@ -43,7 +43,7 @@ describe("instagram · lecturas", () => {
     expect(result.text).toContain("Qué bonito");
   });
 
-  it("discover: perfil y piezas de otra cuenta, con aviso de URLs caducas", async () => {
+  it("discover: profile and items of another account, with expiring-URL notice", async () => {
     const result = await runInstagramAction(makeDeps(), "discover", {
       username: "@example_brand",
       limit: 2,
@@ -55,7 +55,7 @@ describe("instagram · lecturas", () => {
     expect(result.text).toContain("caducan");
   });
 
-  it("publication_status: estado e id remoto", async () => {
+  it("publication_status: status and remote id", async () => {
     const result = await runInstagramAction(makeDeps(), "publication_status", {
       id: "publication-1797",
     });
@@ -64,7 +64,7 @@ describe("instagram · lecturas", () => {
     expect(result.text).toContain("Id en Instagram: 1797");
   });
 
-  it("insights: métricas de la pieza por la ruta HTTP", async () => {
+  it("insights: item metrics through the HTTP route", async () => {
     const gateway = createFakeGateway();
     const result = await runInstagramAction(makeDeps(gateway), "insights", {
       media_id: "1797",
@@ -77,8 +77,8 @@ describe("instagram · lecturas", () => {
   });
 });
 
-describe("instagram · horas activas", () => {
-  it("active_hours: resumen con las horas punta en la zona pedida", async () => {
+describe("instagram active hours", () => {
+  it("active_hours: summary with peak hours in the requested zone", async () => {
     const gateway = createFakeGateway();
     const result = await runInstagramAction(makeDeps(gateway), "active_hours", {
       timezone: "Europe/Madrid",
@@ -91,7 +91,7 @@ describe("instagram · horas activas", () => {
     expect(gateway.getActiveHours).toHaveBeenCalledWith("/proyecto", "Europe/Madrid");
   });
 
-  it("active_hours: sin días con datos lo dice en vez de inventar horas", async () => {
+  it("active_hours: with no data days says so instead of inventing hours", async () => {
     const gateway = createFakeGateway();
     gateway.getActiveHours.mockResolvedValueOnce({
       timeZone: "UTC",
@@ -106,8 +106,8 @@ describe("instagram · horas activas", () => {
   });
 });
 
-describe("instagram · moderación", () => {
-  it("reply_comment exige confirm y responde el texto pedido", async () => {
+describe("instagram moderation", () => {
+  it("reply_comment requires confirm and replies the requested text", async () => {
     const gateway = createFakeGateway();
     const denied = await runInstagramAction(
       makeDeps(gateway),
@@ -132,7 +132,7 @@ describe("instagram · moderación", () => {
     );
   });
 
-  it("hide_comment exige confirm y usa el id del comentario", async () => {
+  it("hide_comment requires confirm and uses the comment id", async () => {
     const gateway = createFakeGateway();
     const denied = await runInstagramAction(makeDeps(gateway), "hide_comment", {
       comment_id: "comment-1",
@@ -149,8 +149,8 @@ describe("instagram · moderación", () => {
   });
 });
 
-describe("instagram · project y parámetros", () => {
-  it("sin project ni IG_DEFAULT_PROJECT falla antes de llamar al gateway", async () => {
+describe("instagram project and params", () => {
+  it("without project or IG_DEFAULT_PROJECT fails before calling the gateway", async () => {
     const gateway = createFakeGateway();
     const result = await runInstagramAction(
       makeDeps(gateway, { defaultProject: undefined }),
@@ -162,7 +162,7 @@ describe("instagram · project y parámetros", () => {
     expect(gateway.getQuota).not.toHaveBeenCalled();
   });
 
-  it("el project explícito manda sobre el de por defecto", async () => {
+  it("explicit project wins over the default one", async () => {
     const gateway = createFakeGateway();
     await runInstagramAction(makeDeps(gateway), "quota", {
       project: "/otro",
@@ -170,28 +170,28 @@ describe("instagram · project y parámetros", () => {
     expect(gateway.getQuota).toHaveBeenCalledWith("/otro");
   });
 
-  it("en lectura un parámetro desconocido solo avisa", async () => {
+  it("on reads an unknown param only warns", async () => {
     const result = await runInstagramAction(makeDeps(), "media", {
       limit: 3,
-      inventado: 1,
+      madeUp: 1,
     });
     expect(result.success).toBe(true);
-    expect(result.text).toContain("Aviso: parámetros ignorados: inventado");
+    expect(result.text).toContain("Aviso: parámetros ignorados: madeUp");
   });
 
-  it("en escritura un parámetro desconocido es error y no escribe", async () => {
+  it("on writes an unknown param errors and writes nothing", async () => {
     const gateway = createFakeGateway();
     const result = await runInstagramAction(makeDeps(gateway), "hide_comment", {
       comment_id: "c-1",
       confirm: true,
-      inventado: true,
+      madeUp: true,
     });
     expect(result.success).toBe(false);
     expect(result.text).toContain("Parámetros desconocidos");
     expect(gateway.hideComment).not.toHaveBeenCalled();
   });
 
-  it("acción desconocida lista las válidas", async () => {
+  it("unknown action lists the valid ones", async () => {
     const result = await runInstagramAction(makeDeps(), "publicar", {});
     expect(result.success).toBe(false);
     expect(result.text).toContain("Acción desconocida: 'publicar'");

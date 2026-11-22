@@ -12,7 +12,7 @@ process.env.LOG_FILE = logFile;
 const { logger } = await import('../src/infrastructure/logging/Logger.js');
 
 describe('Logger', () => {
-  it('escribe aplicación y error en el mismo fichero, en JSON', async () => {
+  it('writes app and error to the same file, in JSON', async () => {
     // La consola va a stderr: stdout es solo la salida de máquina del CLI, y
     // un aviso suelto ahí rompía el JSON que parsean storyteller y predictions
     // («Unexpected non-whitespace character after JSON»).

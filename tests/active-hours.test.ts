@@ -17,7 +17,7 @@ function day(endTime: string, overrides: Record<number, number> = {}, base = 10)
 }
 
 describe('summarizeActiveHours', () => {
-  it('pasa las horas del Pacífico a la zona pedida a partir del end_time real', () => {
+  it('maps Pacific hours to the requested zone from the real end_time', () => {
     // Día que acaba a medianoche del Pacífico en invierno (08:00 UTC): la hora 12
     // del Pacífico son las 20:00 UTC y las 21:00 en Madrid.
     const summary = summarizeActiveHours([day('2026-11-16T08:00:00+0000', { 12: 90 })], 'Europe/Madrid');
@@ -27,12 +27,12 @@ describe('summarizeActiveHours', () => {
     expect(summarizeActiveHours([day('2026-11-16T08:00:00+0000', { 12: 90 })], 'UTC').peak[0]).toEqual({ hour: 20, average: 90 });
   });
 
-  it('respeta el horario de verano: en octubre el día acaba a las 07:00 UTC', () => {
+  it('honours daylight saving: in October the day ends at 07:00 UTC', () => {
     const summary = summarizeActiveHours([day('2026-10-19T07:00:00+0000', { 12: 90 })], 'UTC');
     expect(summary.peak[0]).toEqual({ hour: 19, average: 90 });
   });
 
-  it('hace la media por hora entre días, ignora los días vacíos y redondea a un decimal', () => {
+  it('averages per hour across days, skips empty days and rounds to one decimal', () => {
     const summary = summarizeActiveHours([
       day('2026-11-14T08:00:00+0000', { 12: 10 }, 1),
       day('2026-11-15T08:00:00+0000', { 12: 21 }, 1),
@@ -44,7 +44,7 @@ describe('summarizeActiveHours', () => {
     expect(summary.peak.map((entry) => entry.hour)).toEqual([20, 0, 1]);
   });
 
-  it('usa el end_time del día anterior como inicio: el día del cambio de hora dura 25 h', () => {
+  it('uses the previous day end_time as start: the DST day lasts 25 h', () => {
     // 2026-11-01 vuelve el horario estándar en el Pacífico: ese día acaba a las
     // 08:00 UTC y el anterior a las 07:00 UTC, así que empieza a las 07:00 UTC.
     const summary = summarizeActiveHours([
@@ -54,14 +54,14 @@ describe('summarizeActiveHours', () => {
     expect(summary.peak[0]).toEqual({ hour: 7, average: 50 });
   });
 
-  it('sin datos devuelve 24 horas a cero y sin horas punta', () => {
+  it('without data returns 24 zeroed hours and no peak hours', () => {
     const summary = summarizeActiveHours([{ endTime: '2026-11-16T08:00:00+0000', counts: {} }], 'UTC');
     expect(summary.days).toBe(0);
     expect(summary.hours.every((entry) => entry.average === 0)).toBe(true);
     expect(summary.peak).toEqual([]);
   });
 
-  it('descarta claves que no son horas y end_time que no se puede leer', () => {
+  it('drops non-hour keys and unreadable end_time', () => {
     const summary = summarizeActiveHours([
       { endTime: 'no es una fecha', counts: { 3: 99 } },
       { endTime: '2026-11-16T08:00:00+0000', counts: { 24: 99, x: 99, 1: 5 } },
@@ -72,7 +72,7 @@ describe('summarizeActiveHours', () => {
 });
 
 describe('GetActiveHours', () => {
-  it('resuelve la cuenta del proyecto y resume en la zona pedida', async () => {
+  it('resolves the project account and summarizes in the requested zone', async () => {
     const gateway = Object.assign(new MemoryGateway(account), {
       getOnlineFollowers: async (received: Account) => {
         expect(received.id).toBe(account.id);
@@ -83,14 +83,14 @@ describe('GetActiveHours', () => {
     expect(summary.peak[0]).toEqual({ hour: 21, average: 90 });
   });
 
-  it('por defecto usa UTC', async () => {
+  it('defaults to UTC', async () => {
     const gateway = Object.assign(new MemoryGateway(account), { getOnlineFollowers: async () => [day('2026-11-16T08:00:00+0000', { 12: 90 })] });
     const summary = await new GetActiveHours(gateway, new MemoryAccountResolver(account)).execute('/proyecto');
     expect(summary.timeZone).toBe('UTC');
     expect(summary.peak[0]?.hour).toBe(20);
   });
 
-  it('una zona horaria inválida es INVALID_REQUEST y no llama a Meta', async () => {
+  it('an invalid time zone is INVALID_REQUEST and does not call Meta', async () => {
     let called = false;
     const gateway = Object.assign(new MemoryGateway(account), { getOnlineFollowers: async () => { called = true; return []; } });
     const error = await new GetActiveHours(gateway, new MemoryAccountResolver(account)).execute('/proyecto', 'Marte/Olympus').catch((caught: unknown) => caught);
@@ -100,8 +100,8 @@ describe('GetActiveHours', () => {
   });
 });
 
-describe('GraphClient · online_followers', () => {
-  it('pide los últimos 29 días con period=lifetime y devuelve cada día con sus horas', async () => {
+describe('GraphClient online_followers', () => {
+  it('requests the last 29 days with period=lifetime and returns each day with its hours', async () => {
     let requested = '';
     const client = new GraphClient({
       fetcher: async (input) => {
@@ -128,7 +128,7 @@ describe('GraphClient · online_followers', () => {
     ]);
   });
 
-  it('sin datos devuelve una lista vacía', async () => {
+  it('without data returns an empty list', async () => {
     const client = new GraphClient({ fetcher: async () => new Response(JSON.stringify({ data: [] }), { status: 200, headers: { 'content-type': 'application/json' } }) });
     expect(await client.getOnlineFollowers(account)).toEqual([]);
   });
@@ -147,8 +147,8 @@ async function get(path: string, gateway: MemoryGateway) {
   }
 }
 
-describe('http · active-hours', () => {
-  it('GET /v1/account/active-hours devuelve el resumen en la zona pedida', async () => {
+describe('http active-hours', () => {
+  it('GET /v1/account/active-hours returns the summary in the requested zone', async () => {
     const gateway = Object.assign(new MemoryGateway(account), { getOnlineFollowers: async () => [day('2026-11-16T08:00:00+0000', { 12: 90 })] });
     const response = await get('/v1/account/active-hours?project=/tmp&timezone=Europe/Madrid', gateway);
     expect(response.status).toBe(200);
@@ -157,7 +157,7 @@ describe('http · active-hours', () => {
     expect(body.peak[0]).toEqual({ hour: 21, average: 90 });
   });
 
-  it('exige project y responde 400 a una zona inválida', async () => {
+  it('requires project and answers 400 for an invalid zone', async () => {
     const missing = await get('/v1/account/active-hours', new MemoryGateway(account));
     expect(missing.status).toBe(400);
     const invalid = await get('/v1/account/active-hours?project=/tmp&timezone=Marte/Olympus', new MemoryGateway(account));

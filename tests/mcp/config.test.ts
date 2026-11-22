@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { loadIgMcpConfig } from "../../src/mcp/infrastructure/config.js";
 
-describe("configuración", () => {
-  it("aplica los valores por defecto del loopback", () => {
+describe("configuration", () => {
+  it("applies the loopback defaults", () => {
     expect(loadIgMcpConfig({})).toEqual({
       gatewayUrl: "http://127.0.0.1:4005",
       token: undefined,
@@ -10,7 +10,7 @@ describe("configuración", () => {
     });
   });
 
-  it("lee URL, token y proyecto del entorno", () => {
+  it("reads URL, token and project from the environment", () => {
     const config = loadIgMcpConfig({
       IG_GATEWAY_URL: "http://127.0.0.1:4999/",
       IG_GATEWAY_TOKEN: "  abc  ",
@@ -21,19 +21,19 @@ describe("configuración", () => {
     expect(config.defaultProject).toBe("/p");
   });
 
-  it("rechaza una URL inválida al arrancar", () => {
+  it("rejects an invalid URL at startup", () => {
     expect(() => loadIgMcpConfig({ IG_GATEWAY_URL: "no-es-url" })).toThrow(
       "IG_GATEWAY_URL no es una URL válida",
     );
   });
 
-  it("rechaza protocolos que no son http/https", () => {
+  it("rejects non-http/https protocols", () => {
     expect(() =>
       loadIgMcpConfig({ IG_GATEWAY_URL: "ftp://127.0.0.1:4005" }),
     ).toThrow("debe ser http o https");
   });
 
-  it("no confunde un token vacío con uno definido", () => {
+  it("does not mistake an empty token for a defined one", () => {
     expect(loadIgMcpConfig({ IG_GATEWAY_TOKEN: "   " }).token).toBeUndefined();
   });
 });

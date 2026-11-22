@@ -6,7 +6,7 @@ import type { Account } from '../src/domain/Account.js';
 const full: Account = { id: '1', username: 'test', accessToken: 'token', tokenFingerprint: 'hash', capabilities: new Set(['media', 'stories', 'quota', 'alt_text', 'user_tags', 'collaborators', 'location']) };
 const publish = (account = full, gateway = new MemoryGateway(account), staging = new MemoryStaging(), log = new MemoryLog(), attempts = 3) => new PublishMedia(gateway, staging, new MemoryAccountResolver(account), log, attempts, async () => undefined);
 
-it('cubre todas las capacidades opcionales y restricciones de tipo', async () => {
+it('covers every optional capability and type restriction', async () => {
   for (const [field, value] of [['altText', 'alt'], ['userTags', [{ username: 'u' }]], ['collaborators', ['u']], ['locationId', 'place']] as const) {
     const limited: Account = { ...full, capabilities: new Set(['media', 'quota']) }; const input = { projectPath: '/tmp/p', media: [{ path: '/tmp/a' }], [field]: value }; await expect(publish(limited).execute(input)).rejects.toMatchObject({ code: 'PERMISSION' });
   }
@@ -15,7 +15,7 @@ it('cubre todas las capacidades opcionales y restricciones de tipo', async () =>
   await expect(publish().execute({ projectPath: '/tmp/p', media: [{ path: '/tmp/a' }], shareToFeed: true })).rejects.toMatchObject({ code: 'PERMISSION' });
 });
 
-it('cubre error no tipado y maxAttempts cero con cleanup', async () => {
+it('covers untyped errors and zero maxAttempts with cleanup', async () => {
   const gateway = new MemoryGateway(full); gateway.publish = async () => { throw new Error('plain'); }; const staging = new MemoryStaging(); await expect(publish(full, gateway, staging).execute({ projectPath: '/tmp/p', media: [{ path: '/tmp/a' }] })).rejects.toThrow('plain'); expect(staging.cleanupCalls).toBe(1);
   const zeroStaging = new MemoryStaging(); await expect(publish(full, new MemoryGateway(full), zeroStaging, new MemoryLog(), 0).execute({ projectPath: '/tmp/p', media: [{ path: '/tmp/a' }] })).rejects.toBeUndefined(); expect(zeroStaging.cleanupCalls).toBe(1);
 });

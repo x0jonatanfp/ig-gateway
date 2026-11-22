@@ -13,12 +13,12 @@ const actionEnum: readonly string[] = [
   ...(schema.properties.action.enum as readonly string[]),
 ];
 
-describe("coherencia de la tool instagram", () => {
-  it("el enum de acciones coincide con la tabla única", () => {
+describe("instagram tool coherence", () => {
+  it("action enum matches the single table", () => {
     expect(actionEnum).toEqual(VALID_ACTIONS);
   });
 
-  it("todos los parámetros de la tabla existen en el esquema", () => {
+  it("every table param exists in the schema", () => {
     for (const action of VALID_ACTIONS) {
       for (const param of actionParamList(action)) {
         expect(properties, `${action}.${param}`).toContain(param);
@@ -26,7 +26,7 @@ describe("coherencia de la tool instagram", () => {
     }
   });
 
-  it("no hay parámetros en el esquema que ninguna acción use", () => {
+  it("no schema param goes unused by every action", () => {
     for (const property of properties) {
       const used = VALID_ACTIONS.some((action) =>
         actionParamList(action).includes(property),
@@ -35,7 +35,7 @@ describe("coherencia de la tool instagram", () => {
     }
   });
 
-  it("cada parámetro tiene descripción", () => {
+  it("every param has a description", () => {
     for (const [name, value] of Object.entries(
       schema.properties.params.properties,
     )) {
@@ -44,13 +44,13 @@ describe("coherencia de la tool instagram", () => {
     }
   });
 
-  it("las instrucciones nombran todas las acciones", () => {
+  it("instructions name every action", () => {
     for (const action of VALID_ACTIONS) {
       expect(IG_SERVER_INSTRUCTIONS).toContain(action);
     }
   });
 
-  it("publicar y moderar están marcadas como escritura", () => {
+  it("publish and moderate actions are marked as writes", () => {
     for (const action of [
       "publish_preview",
       "publish",

@@ -26,8 +26,8 @@ async function request(path: string, gateway: MemoryGateway) {
   }
 }
 
-describe('http · insights', () => {
-  it('devuelve las métricas de la pieza con la cuenta del proyecto', async () => {
+describe('http insights', () => {
+  it('returns item metrics with the project account', async () => {
     const insights = [{ name: 'reach', values: [{ value: 42 }, { value: 7, endTime: '2026-11-09T08:00:00+0000' }] }];
     let seen: { accountId: string; mediaId?: string } | undefined;
     const gateway = Object.assign(new MemoryGateway(account), {
@@ -42,13 +42,13 @@ describe('http · insights', () => {
     expect(seen).toEqual({ accountId: account.id, mediaId: '1797' });
   });
 
-  it('exige project y autenticación como el resto de rutas', async () => {
+  it('requires project and auth like the other routes', async () => {
     const missingProject = await request('/v1/media/1797/insights', new MemoryGateway(account));
     expect(missingProject.status).toBe(400);
     expect(await missingProject.json()).toMatchObject({ code: 'INVALID_REQUEST' });
   });
 
-  it('sin token responde 401', async () => {
+  it('without token answers 401', async () => {
     const app = createApp({ gateway: new MemoryGateway(account), staging: new MemoryStaging(), resolver: new MemoryAccountResolver(account), log: new MemoryLog(), authToken: 'gateway-secret' });
     const server = createServer(app);
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));

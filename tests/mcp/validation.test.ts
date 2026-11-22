@@ -26,8 +26,8 @@ async function previewWith(
   );
 }
 
-describe("instagram · validación de media", () => {
-  it("rechaza rutas relativas sin llamar al gateway", async () => {
+describe("instagram media validation", () => {
+  it("rejects relative paths without calling the gateway", async () => {
     const gateway = createFakeGateway();
     const result = await previewWith({ media: ["foto.png"] }, gateway);
     expect(result.success).toBe(false);
@@ -35,7 +35,7 @@ describe("instagram · validación de media", () => {
     expect(gateway.publish).not.toHaveBeenCalled();
   });
 
-  it("rechaza rutas inexistentes sin llamar al gateway", async () => {
+  it("rejects missing paths without calling the gateway", async () => {
     const gateway = createFakeGateway();
     const result = await previewWith(
       { media: ["/no/existe/foto.png"] },
@@ -47,7 +47,7 @@ describe("instagram · validación de media", () => {
     expect(gateway.publish).not.toHaveBeenCalled();
   });
 
-  it("exige una sola pieza en foto, reel y story", async () => {
+  it("requires a single item for photo, reel and story", async () => {
     const result = await previewWith({
       media: paths(2),
       type: "photo",
@@ -56,7 +56,7 @@ describe("instagram · validación de media", () => {
     expect(result.text).toContain("exactamente una pieza");
   });
 
-  it("carrusel por debajo y por encima del rango", async () => {
+  it("carousel below and above the range", async () => {
     const one = await previewWith({ media: paths(1), type: "carousel" });
     expect(one.success).toBe(false);
     expect(one.text).toContain("entre 2 y 10");
@@ -66,21 +66,21 @@ describe("instagram · validación de media", () => {
     expect(eleven.text).toContain("entre 2 y 10");
   });
 
-  it("acepta un carrusel de 2 piezas", async () => {
+  it("accepts a 2-item carousel", async () => {
     const result = await previewWith({ media: paths(2), type: "carousel" });
     expect(result.success).toBe(true);
     expect(result.text).toContain("2 piezas");
   });
 
-  it("rechaza un tipo de publicación desconocido", async () => {
+  it("rejects an unknown publication type", async () => {
     const result = await previewWith({ media: paths(1), type: "video" });
     expect(result.success).toBe(false);
     expect(result.text).toContain("type no válido");
   });
 });
 
-describe("instagram · límites del caption", () => {
-  it(`rechaza más de ${MAX_CAPTION_CHARS} caracteres`, async () => {
+describe("instagram caption limits", () => {
+  it(`rejects more than ${MAX_CAPTION_CHARS} chars`, async () => {
     const result = await previewWith({
       media: paths(1),
       caption: "a".repeat(MAX_CAPTION_CHARS + 1),
@@ -89,7 +89,7 @@ describe("instagram · límites del caption", () => {
     expect(result.text).toContain("supera 2200 caracteres");
   });
 
-  it("acepta exactamente el máximo", async () => {
+  it("accepts exactly the maximum", async () => {
     const result = await previewWith({
       media: paths(1),
       caption: "a".repeat(MAX_CAPTION_CHARS),
@@ -97,22 +97,22 @@ describe("instagram · límites del caption", () => {
     expect(result.success).toBe(true);
   });
 
-  it(`rechaza más de ${MAX_HASHTAGS} hashtags`, async () => {
+  it(`rejects more than ${MAX_HASHTAGS} hashtags`, async () => {
     const caption = Array.from({ length: MAX_HASHTAGS + 1 }, (_, i) => `#tag${i}`).join(" ");
     const result = await previewWith({ media: paths(1), caption });
     expect(result.success).toBe(false);
     expect(result.text).toContain(`${MAX_HASHTAGS + 1} hashtags`);
   });
 
-  it(`acepta ${MAX_HASHTAGS} hashtags`, async () => {
+  it(`accepts ${MAX_HASHTAGS} hashtags`, async () => {
     const caption = Array.from({ length: MAX_HASHTAGS }, (_, i) => `#tag${i}`).join(" ");
     const result = await previewWith({ media: paths(1), caption });
     expect(result.success).toBe(true);
   });
 });
 
-describe("instagram · límites de opciones", () => {
-  it("una historia no admite colaboradores", async () => {
+describe("instagram option limits", () => {
+  it("a story accepts no collaborators", async () => {
     const result = await previewWith({
       media: paths(1),
       type: "story",
@@ -122,7 +122,7 @@ describe("instagram · límites de opciones", () => {
     expect(result.text).toContain("no admite colaboradores");
   });
 
-  it("más de 3 colaboradores", async () => {
+  it("more than 3 collaborators", async () => {
     const result = await previewWith({
       media: paths(1),
       collaborators: ["a", "b", "c", "d"],
@@ -131,7 +131,7 @@ describe("instagram · límites de opciones", () => {
     expect(result.text).toContain("máximo 3 colaboradores");
   });
 
-  it("un carrusel no admite location_id", async () => {
+  it("a carousel accepts no location_id", async () => {
     const result = await previewWith({
       media: paths(2),
       type: "carousel",
@@ -141,7 +141,7 @@ describe("instagram · límites de opciones", () => {
     expect(result.text).toContain("no admite location_id");
   });
 
-  it("share_to_feed solo vale para reels", async () => {
+  it("share_to_feed is reels-only", async () => {
     const result = await previewWith({
       media: paths(1),
       type: "photo",

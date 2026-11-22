@@ -18,7 +18,7 @@ function bodyOf(call: { url?: string; init?: RequestInit }): URLSearchParams {
   return new URL(String(call.url ?? 'https://graph.facebook.com/')).searchParams;
 }
 
-describe('GraphClient publicación', () => {
+describe('GraphClient publishing', () => {
   it('publishes a photo with exact optional parameters and media_publish', async () => {
     const { calls, fetcher } = fetchSequence([{ id: 'photo-container' }, { status_code: 'FINISHED' }, { id: 'published-photo' }]);
     const client = new GraphClient({ fetcher, pollIntervalMs: 0, sleep: async () => undefined });
@@ -69,7 +69,7 @@ describe('GraphClient publicación', () => {
     const missingPublished = new GraphClient({ fetcher: fetchSequence([{ id: 'container' }, { status_code: 'FINISHED' }, {}]).fetcher, pollIntervalMs: 0, sleep: async () => undefined }); await expect(missingPublished.publish(request())).rejects.toMatchObject({ code: 'REMOTE_FAILURE' });
   });
 
-  it('reintenta la descarga del media por Meta (subcode 2207003) hasta que el contenedor entra', async () => {
+  it('retries the Meta media download (subcode 2207003) until the container lands', async () => {
     // Caso visto en producción: Meta descarga el media de la URL pública y, con
     // la red en mal estado, la mitad de las conexiones se quedan colgadas. El
     // fallo es por conexión, así que se repite la misma imagen.
@@ -96,7 +96,7 @@ describe('GraphClient publicación', () => {
     const timeout = new GraphClient({ fetcher: fetchSequence([{ id: 'container' }, { status_code: 'IN_PROGRESS' }]).fetcher, pollIntervalMs: 0, maxPollAttempts: 1, sleep: async () => undefined }); await expect(timeout.publish(request())).rejects.toMatchObject({ code: 'REMOTE_FAILURE', retryable: true });
   });
 
-  it('cachea la cuota y no la pregunta en cada publicación', async () => {
+  it('caches the quota instead of asking on every publication', async () => {
     let calls = 0;
     const fetcher = vi.fn(async () => { calls += 1; return jsonResponse({ data: [{ quota_usage: 2, config: { quota_total: 100, quota_duration: 86400 } }] }); }) as unknown as typeof fetch;
     const client = new GraphClient({ fetcher });
@@ -111,7 +111,7 @@ describe('GraphClient publicación', () => {
     expect(calls).toBe(before + 1);
   });
 
-  it('si media_publish falla pero la pieza salió, la da por publicada (comprobado en la cuenta)', async () => {
+  it('when media_publish fails but the item landed, reports it as published (checked on the account)', async () => {
     // Caso real del 12-sep: Meta publica y responde «Application request limit
     // reached» (4). Antes se reintentaba y salían 3 posts; ahora se comprueba.
     const { fetcher, calls } = fetchSequence([
@@ -130,7 +130,7 @@ describe('GraphClient publicación', () => {
     expect(calls.some((call) => call.url.includes('/media') && !call.url.includes('media_publish'))).toBe(true);
   });
 
-  it('si comprueba que no salió, deja reintentar; si no puede comprobarlo, no', async () => {
+  it('when the check says it did not land, allows a retry; otherwise it does not', async () => {
     const absent = fetchSequence([
       { id: 'container-1' },
       { status_code: 'FINISHED' },
@@ -152,7 +152,7 @@ describe('GraphClient publicación', () => {
     ).rejects.toMatchObject({ code: 'UNKNOWN', retryable: false });
   });
 
-  it('cuenta las llamadas y aplica un freno suave por minuto', async () => {
+  it('counts calls and applies a soft per-minute brake', async () => {
     const waits: number[] = [];
     let now = 1_000_000;
     const dir = await mkdtemp(join(tmpdir(), 'ig-calls-limiter-'));
@@ -173,7 +173,7 @@ describe('GraphClient publicación', () => {
     expect(waits.some((ms) => ms > 0)).toBe(true);
   });
 
-  it('el contador es compartido entre ejecuciones (el CLI arranca un proceso cada vez)', async () => {
+  it('shares the counter across runs (the CLI starts one process per run)', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'ig-calls-'));
     const callsLogPath = join(dir, 'calls.jsonl');
     const { fetcher } = fetchSequence([{ id: '1', username: 'example_studio' }]);
@@ -187,7 +187,7 @@ describe('GraphClient publicación', () => {
   });
 });
 
-describe('GraphClient consultas', () => {
+describe('GraphClient queries', () => {
   it('maps permissions, rate limits, invalid requests and server errors', async () => {
     const permission = new GraphClient({ fetcher: async () => jsonResponse({ error: { code: 10, message: 'permission' } }, 500) }); await expect(permission.getQuota(account)).rejects.toMatchObject({ code: 'PERMISSION', retryable: false });
     for (const body of [{ error: { code: 4, message: 'rate' } }, { error: { code: 1, message: 'server' } }]) { const client = new GraphClient({ fetcher: async () => jsonResponse(body, 500) }); await expect(client.getQuota(account)).rejects.toMatchObject({ retryable: true }); }
@@ -227,7 +227,7 @@ describe('GraphClient consultas', () => {
     if (action === 'hide') expect(bodyOf(calls[0] ?? {}).get('is_hidden')).toBeNull();
   });
 
-  it('lista las piezas con su permalink y sigue la paginación', async () => {
+  it('lists items with their permalink and follows pagination', async () => {
     const { calls, fetcher } = fetchSequence([
       {
         data: [
@@ -252,7 +252,7 @@ describe('GraphClient consultas', () => {
     expect(bodyOf(calls[1] ?? {}).get('after')).toBe('cursor-1');
   });
 
-  it('respeta el límite de piezas pedido', async () => {
+  it('honours the requested item limit', async () => {
     const { calls, fetcher } = fetchSequence([
       { data: Array.from({ length: 5 }, (_, i) => ({ id: String(i), permalink: `https://www.instagram.com/p/p${i}/` })) },
     ]);

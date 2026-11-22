@@ -15,7 +15,7 @@ describe('domain', () => {
     expect(() => validateMediaType('carousel', 2)).not.toThrow();
     expect(() => validateMediaType('photo', 2)).toThrow();
   });
-  it('lanza INVALID_REQUEST 400 ante captions y cardinalidades fuera de límite', () => {
+  it('throws INVALID_REQUEST 400 for out-of-range captions and cardinalities', () => {
     const invalid = (run: () => unknown, message: RegExp) => {
       let caught: unknown;
       try { run(); } catch (error) { caught = error; }

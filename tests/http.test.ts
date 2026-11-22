@@ -13,7 +13,7 @@ describe('http', () => {
   it('requires header auth outside health', async () => { expect((await request('/v1/quota?project=/tmp')).status).toBe(401); });
   it('validates project and returns JSON error', async () => { const response = await request('/v1/quota', { headers: { 'x-ig-gateway-token': 'gateway-secret' } }); expect(response.status).toBe(400); expect(await response.json()).toMatchObject({ code: 'INVALID_REQUEST' }); });
   it('serves quota with auth', async () => { const response = await request('/v1/quota?project=/tmp', { headers: { 'x-ig-gateway-token': 'gateway-secret' } }); expect(response.status).toBe(200); expect(await response.json()).toMatchObject({ quotaRemaining: 25 }); });
-  it('lista el media de la cuenta con su permalink', async () => {
+  it('lists account media with its permalink', async () => {
     const app = createApp({
       gateway: Object.assign(new MemoryGateway(account), {
         media: [
