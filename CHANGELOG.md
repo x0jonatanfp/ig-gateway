@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [1.3.0](https://github.com/x0jonatanfp/ig-gateway/compare/v1.2.0...v1.3.0) (2026-11-23)
+
+### Features
+
+* **errors:** los fallos de publicación dicen por qué y quedan en el log ([3886928](https://github.com/x0jonatanfp/ig-gateway/commit/3886928037d9ff64fdbe19b45ee54e263a18de34))
+
 ## [1.2.0](https://github.com/x0jonatanfp/ig-gateway/compare/v1.1.0...v1.2.0) (2026-11-23)
 
 ### Features
