@@ -74,10 +74,12 @@ describe('http', () => {
         headers: { 'x-ig-gateway-token': 'gateway-secret', 'content-type': 'application/json' },
         body: JSON.stringify({ project: '/tmp', media: [{ path: '/tmp/reel.mp4' }], type: 'reel', caption: 'texto privado' }),
       }, new MemoryLog(), undefined, gateway);
-      expect(logged).toHaveBeenCalledTimes(1);
-      const [message, fields] = logged.mock.calls[0] as unknown as [string, Record<string, unknown>];
+      const httpFailure = (logged.mock.calls as unknown as [string, Record<string, unknown>][]).filter(([message]) => message === 'request failed');
+      expect(httpFailure).toHaveLength(1);
+      const [message, fields] = httpFailure[0] as [string, Record<string, unknown>];
       expect(message).toContain('request failed');
-      expect(fields).toMatchObject({ method: 'POST', path: '/v1/publications', status: 500, code: 'INVALID_REQUEST', subcode: 2207026, retryable: false });
+      expect(fields).toMatchObject({ method: 'POST', route: '/v1/publications', status: 500, code: 'INVALID_REQUEST', subcode: 2207026, retryable: false });
+      expect(typeof fields.durationMs).toBe('number');
       expect(String(fields.message)).toContain('subcode 2207026: unsupported video format');
       const serialized = JSON.stringify(logged.mock.calls);
       expect(serialized).not.toContain('gateway-secret');
@@ -98,9 +100,27 @@ describe('http', () => {
         body: JSON.stringify({ project: '/tmp', media: [{ path: '/tmp/a.jpg' }], type: 'photo' }),
       }, new MemoryLog(), undefined, gateway);
       expect(response.status).toBe(500);
-      expect(logged).toHaveBeenCalledTimes(1);
-      const [, fields] = logged.mock.calls[0] as unknown as [string, Record<string, unknown>];
+      const httpFailure = (logged.mock.calls as unknown as [string, Record<string, unknown>][]).filter(([message]) => message === 'request failed');
+      expect(httpFailure).toHaveLength(1);
+      const [, fields] = httpFailure[0] as [string, Record<string, unknown>];
       expect(fields).toMatchObject({ status: 500, code: 'UNKNOWN', message: 'Internal gateway error', cause: 'boom inesperado' });
+    } finally {
+      logged.mockRestore();
+    }
+  });
+  it('logs one line per request, without query or health checks', async () => {
+    const logged = vi.spyOn(logger, 'info').mockImplementation(() => logger);
+    try {
+      await (await request('/v1/quota?project=/secret/project', { headers: { 'x-ig-gateway-token': 'gateway-secret' } })).text();
+      await (await request('/health')).text();
+      // La línea se escribe en 'finish'; se espera a que el servidor la emita.
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      const calls = (logged.mock.calls as unknown as [string, Record<string, unknown>][]).filter(([message]) => message === 'request');
+      expect(calls).toHaveLength(1);
+      const [, fields] = calls[0] as [string, Record<string, unknown>];
+      expect(fields).toMatchObject({ method: 'GET', route: '/v1/quota', status: 200 });
+      expect(typeof fields.durationMs).toBe('number');
+      expect(JSON.stringify(calls)).not.toContain('/secret/project');
     } finally {
       logged.mockRestore();
     }

@@ -12,13 +12,13 @@ Local gateway that publishes to Instagram through Meta's Graph API. A single exi
 
 Hexagonal in `src/`, with dependencies pointing inwards:
 
-- `domain/`: entities and ports (`Account.ts`, `MediaItem.ts`, `Publication.ts`, `PublicationError.ts`, `Quota.ts`, `ActiveHours.ts`, `Caption.ts`, `ports.ts`). Pure logic, no I/O, no config and no logger.
+- `domain/`: entities and ports (`Account.ts`, `MediaItem.ts`, `Publication.ts`, `PublicationError.ts`, `Quota.ts`, `ActiveHours.ts`, `Caption.ts`, `Logger.ts`, `ports.ts`). Pure logic, no I/O and no config: `Logger.ts` is only the log port.
 - `application/`: use cases that only talk to ports: `PublishMedia`, `PublishStory`, `CheckAccount`, `GetQuota`, `ListMedia`, `GetInsights`, `GetActiveHours`, `DiscoverAccount`, `ModerateComment`, `SearchAudio`, `SweepStaging`. `memory.ts` is an in-memory implementation for tests.
 - `infrastructure/`: the only place that touches the network, the disk or Meta:
   - `graph/GraphClient.ts`: Graph API client, with adaptive polling and retries.
   - `staging/DiskMediaStaging.ts`: temporary copies of the media.
   - `accounts/EnvAccountResolver.ts`: account registry per project.
-  - `logging/JsonlPublicationLog.ts` and `Logger.ts`.
+  - `logging/JsonlPublicationLog.ts`, `Logger.ts` (winston plus `appLogger`) and `Redact.ts` (central redaction).
   - `config/InstallEnvFile.ts`.
 - `http/app.ts` and `http/server.ts`: Express routes (`/health`, `/v1/publications`, `/v1/quota`, `/v1/media`, `/v1/media/:id/insights`, `/v1/media/:id/comments`, `/v1/accounts/check`, `/v1/discovery/:username`, `/v1/account/active-hours`, `/v1/audio`...). Each route composes its use case.
 - `cli/index.ts`: command-line subcommands over the same use cases.
@@ -64,6 +64,7 @@ Publishing flow: the use case validates the media and the caption → the quota 
 - **Hashtag cap.** Lowered from 30 to 5 (commit `1f4bec7`), which is the real limit of the API.
 - **Audio on reels.** `audioId`, `audioVolume` and `videoVolume` are reels-only and reach Meta as `audio_configuration` when the container is created (Audio API, 1-jun-2026). `audioName` is not music: it is the label of the video's own original audio. Searching (`GET /ig_audio`, use case `SearchAudio`) is read-only and attaches nothing by itself. Attaching audio to a real publication has not been verified yet.
 - **Input errors.** An invalid input responds 400, not 500 (commit `cea7445`).
+- **Structured logs.** Every publication carries a `correlationId` (`publish-<uuid>`) from before staging, shared by every line: `PublishMedia` generates it and it reaches `GraphClient` through `PublishRequest.correlationId`. Every HTTP request leaves exactly one line when it finishes (except `/health`); failures are written once, by the error handler, with the phase (`resolve`, `validate`, `quota`, `staging`, `publish`, `record`). Everything goes through `infrastructure/logging/Redact.ts`: never tokens, headers, URLs with query, caption text, bodies, local paths or the numeric account id. Container polls are `debug` (a reel can be polled dozens of times); the summary is `info`.
 - **MCP without direct access.** Do not add an MCP call to a use case: it would break the single quota and log.
 - **Domain dependency.** `domain/` does not import infrastructure; `application/` only imports from `domain/`. Keep it that way when adding code.
 

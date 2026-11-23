@@ -25,6 +25,8 @@ export interface PublishRequest {
   audioVolume?: number;
   videoVolume?: number;
   dryRun?: boolean;
+  /** Id que comparten todas las líneas de log de esta publicación (lo genera el caso de uso). */
+  correlationId?: string;
 }
 
 export interface Comment {

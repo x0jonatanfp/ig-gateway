@@ -3,7 +3,7 @@ import { CheckAccount, DiscoverAccount, GetActiveHours, GetInsights, GetQuota, L
 import type { MediaInput, InstagramGatewayPort, MediaStagingPort, AccountResolverPort, PublicationLogPort } from '../domain/index.js';
 import { PublicationError } from '../domain/PublicationError.js';
 import { toPublicAccount } from '../domain/Account.js';
-import { logger } from '../infrastructure/logging/Logger.js';
+import { appLogger } from '../infrastructure/logging/Logger.js';
 
 export interface HttpDependencies {
   gateway: InstagramGatewayPort;
@@ -18,6 +18,18 @@ export interface HttpDependencies {
 export function createApp(dependencies: HttpDependencies) {
   const app = express();
   app.use(express.json({ limit: '1mb' }));
+  // Una línea por petición al terminar: método, ruta (sin query), estado y
+  // milisegundos. /health se consulta en bucle y no aporta nada al log.
+  app.use((request, response, next) => {
+    response.locals.startedAt = process.hrtime.bigint();
+    response.on('finish', () => {
+      if (request.path === '/health') return;
+      // Si acabó en error, la línea la escribe el manejador de errores: una sola por petición.
+      if (response.locals.gatewayError !== undefined) return;
+      appLogger.info('request', { method: request.method, route: request.path, status: response.statusCode, durationMs: elapsedMs(response) });
+    });
+    next();
+  });
   const requests = new Map<string, { count: number; resetAt: number }>();
   const limit = dependencies.rateLimit ?? 60;
   const now = dependencies.now ?? Date.now;
@@ -34,7 +46,7 @@ export function createApp(dependencies: HttpDependencies) {
     const body = request.body as { project?: string; media?: MediaInput[]; caption?: string; type?: 'photo' | 'carousel' | 'reel' | 'story'; idempotencyKey?: string; envFile?: string; dryRun?: boolean; altText?: string; userTags?: { username: string; x?: number; y?: number }[]; collaborators?: string[]; locationId?: string; shareToFeed?: boolean; coverUrl?: string; thumbOffset?: number; audioName?: string; audioId?: string; audioVolume?: number; videoVolume?: number };
     if (!body.project || !Array.isArray(body.media) || body.media.length === 0) throw new PublicationError('project and media are required', { code: 'INVALID_REQUEST', retryable: false, status: 400 });
     const input = { projectPath: body.project, media: body.media, ...(body.caption === undefined ? {} : { caption: body.caption }), ...(body.type === undefined ? {} : { type: body.type }), ...(body.idempotencyKey === undefined ? {} : { idempotencyKey: body.idempotencyKey }), ...(body.envFile === undefined ? {} : { envFile: body.envFile }), ...(body.dryRun === undefined ? {} : { dryRun: body.dryRun }), ...(body.altText === undefined ? {} : { altText: body.altText }), ...(body.userTags === undefined ? {} : { userTags: body.userTags }), ...(body.collaborators === undefined ? {} : { collaborators: body.collaborators }), ...(body.locationId === undefined ? {} : { locationId: body.locationId }), ...(body.shareToFeed === undefined ? {} : { shareToFeed: body.shareToFeed }), ...(body.coverUrl === undefined ? {} : { coverUrl: body.coverUrl }), ...(body.thumbOffset === undefined ? {} : { thumbOffset: body.thumbOffset }), ...(body.audioName === undefined ? {} : { audioName: body.audioName }), ...(body.audioId === undefined ? {} : { audioId: body.audioId }), ...(body.audioVolume === undefined ? {} : { audioVolume: body.audioVolume }), ...(body.videoVolume === undefined ? {} : { videoVolume: body.videoVolume }) };
-    return body.type === 'story' ? new PublishStory(dependencies.gateway, dependencies.staging, dependencies.resolver, dependencies.log).execute(input) : new PublishMedia(dependencies.gateway, dependencies.staging, dependencies.resolver, dependencies.log).execute(input);
+    return body.type === 'story' ? new PublishStory(dependencies.gateway, dependencies.staging, dependencies.resolver, dependencies.log, { logger: appLogger }).execute(input) : new PublishMedia(dependencies.gateway, dependencies.staging, dependencies.resolver, dependencies.log, { logger: appLogger }).execute(input);
   }, 201));
 
   app.get('/v1/publications/:id', asyncRoute(async (request) => {
@@ -79,12 +91,15 @@ export function createApp(dependencies: HttpDependencies) {
   app.post('/v1/media/:id/comments', asyncRoute(async (request) => new ModerateComment(dependencies.gateway, dependencies.resolver).execute(requiredProject(request), pathString(request.params.id), request.body.action ?? 'reply', request.body.text)));
   app.use((error: unknown, request: Request, response: Response, _next: NextFunction) => {
     const publicationError = error instanceof PublicationError ? error : new PublicationError('Internal gateway error', { code: 'UNKNOWN', retryable: false, status: 500, cause: error });
-    // Todo error que sale por HTTP queda también en el log del servicio (journal): sin esto un fallo
-    // no reintentable solo se veía en quien llamaba. Solo método y ruta: ni query ni cuerpo ni cabeceras.
-    logger.error('[ig-gateway] request failed', {
+    // Todo error que sale por HTTP queda también en el log del servicio (journal), en una sola
+    // línea por petición: sin esto un fallo no reintentable solo se veía en quien llamaba.
+    // Solo método y ruta: ni query ni cuerpo ni cabeceras.
+    response.locals.gatewayError = publicationError;
+    appLogger.error('request failed', {
       method: request.method,
-      path: request.path,
+      route: request.path,
       status: publicationError.status ?? 500,
+      durationMs: elapsedMs(response),
       code: publicationError.code,
       ...(publicationError.subcode === undefined ? {} : { subcode: publicationError.subcode }),
       retryable: publicationError.retryable,
@@ -115,3 +130,8 @@ function asyncRoute(handler: (request: Request) => Promise<unknown>, successStat
 function requiredProject(request: Request): string { const project = (request.body?.project ?? request.query.project) as unknown; if (typeof project !== 'string' || !project) throw new PublicationError('project is required', { code: 'INVALID_REQUEST', retryable: false, status: 400 }); return project; }
 function queryString(value: unknown): string | undefined { return typeof value === 'string' ? value : undefined; }
 function pathString(value: string | string[] | undefined): string { return Array.isArray(value) ? value[0] ?? '' : value ?? ''; }
+/** Milisegundos desde que el middleware de medidas marcó la petición. */
+function elapsedMs(response: Response): number {
+  const startedAt = response.locals.startedAt as bigint | undefined;
+  return startedAt === undefined ? 0 : Number((process.hrtime.bigint() - startedAt) / 1_000_000n);
+}

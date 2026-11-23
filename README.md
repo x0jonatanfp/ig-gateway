@@ -266,6 +266,51 @@ that bursts trigger. The gateway is tuned to spend as little as possible:
 - **Visible counter**: `check` and `/health` report the calls made in the last
   hour and in the last minute.
 
+## Logs
+
+The service writes structured JSON lines with winston to stderr (which the
+journal collects) and to `LOG_FILE` (`/var/log/ig-gateway.log` by default,
+rotated by logrotate). `LOG_LEVEL` filters both sinks, which receive the same
+lines.
+
+Every publication shares a `correlationId` (`publish-<uuid>`) from before the
+media is staged, and every line of that publication carries it: use case and
+Graph API client. To reconstruct one publication:
+
+```bash
+journalctl -u ig-gateway | grep 'publish-3f2c…'
+grep '"correlationId":"publish-3f2c…"' /var/log/ig-gateway.log
+```
+
+| Event | Level | Fields |
+| --- | --- | --- |
+| `publish start` | info | `correlationId`, `account`, `type`, `pieces`, `dryRun` and, on reels, `audioId`/`audioVolume`/`videoVolume` |
+| `media staged` | info | `correlationId`, `pieces`, `durationMs` |
+| `media container created` | info | `correlationId`, `mediaId`, `containerId`, `attempt` |
+| `container status` | debug | `correlationId`, `containerId`, `statusCode`, `status` (Meta's subcode when there is one), `poll` |
+| `container ready` | info | `correlationId`, `containerId`, `polls`, `durationMs` |
+| `media_publish sent` | info | `correlationId`, `containerId` |
+| `media_publish accepted` | info | `correlationId`, `containerId`, `remoteId` |
+| `publish dry run` | info | `correlationId`, `type`, `pieces` |
+| `publish retry` | warn | `correlationId`, `attempt`, `maxAttempts`, `nextDelayMs`, `code`, `subcode`, `message` |
+| `publish done` | info | `correlationId`, `account`, `publicationId`, `status`, `remoteId`, `recovered`, `durationMs` |
+| `publish failed` | error | `correlationId`, `phase` (`resolve`, `validate`, `quota`, `staging`, `publish`, `record`), `code`, `subcode`, `retryable`, `message`, `durationMs` |
+| `request` / `request failed` | info / error | `method`, `route` (no query), `status`, `durationMs`; failures add `code`, `subcode`, `retryable`, `message` |
+
+Every HTTP request leaves exactly one line when it finishes, except `/health`,
+which is polled in a loop. A failed request is written once, by the error
+handler, with the reason. Each container poll is `debug` on purpose: a reel can
+be polled dozens of times, and the `container ready` summary already says how
+many polls it took and how long it took; run with `LOG_LEVEL=debug` when
+chasing a slow container.
+
+Never logged, by design and by a central redaction function: tokens or
+credentials, request headers, signed URLs (the query string is stripped), the
+caption text, request bodies, machine file paths and the numeric account id
+(the account is identified by its registry name). `publications.jsonl` is the
+publication ledger and keeps its own format: one record per publication plus
+`publish_failed` and `publish_retry` events.
+
 ## Development
 
 ```bash

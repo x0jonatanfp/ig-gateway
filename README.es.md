@@ -271,6 +271,50 @@ el que se dispara con ráfagas. El gateway está afinado para gastar lo mínimo:
 - **Contador visible**: `check` y `/health` informan de las llamadas hechas en la
   última hora y en el último minuto.
 
+## Logs
+
+El servicio escribe líneas JSON con winston a stderr (lo recoge el journal) y a
+`LOG_FILE` (`/var/log/ig-gateway.log` por defecto, con rotación de logrotate).
+`LOG_LEVEL` filtra los dos destinos, que reciben exactamente las mismas líneas.
+
+Cada publicación comparte un `correlationId` (`publish-<uuid>`) desde antes del
+staging, y todas sus líneas lo llevan: las del caso de uso y las del cliente de
+la Graph API. Para reconstruir una publicación:
+
+```bash
+journalctl -u ig-gateway | grep 'publish-3f2c…'
+grep '"correlationId":"publish-3f2c…"' /var/log/ig-gateway.log
+```
+
+| Evento | Nivel | Campos |
+| --- | --- | --- |
+| `publish start` | info | `correlationId`, `account`, `type`, `pieces`, `dryRun` y, en reels, `audioId`/`audioVolume`/`videoVolume` |
+| `media staged` | info | `correlationId`, `pieces`, `durationMs` |
+| `media container created` | info | `correlationId`, `mediaId`, `containerId`, `attempt` |
+| `container status` | debug | `correlationId`, `containerId`, `statusCode`, `status` (el subcódigo de Meta cuando lo hay), `poll` |
+| `container ready` | info | `correlationId`, `containerId`, `polls`, `durationMs` |
+| `media_publish sent` | info | `correlationId`, `containerId` |
+| `media_publish accepted` | info | `correlationId`, `containerId`, `remoteId` |
+| `publish dry run` | info | `correlationId`, `type`, `pieces` |
+| `publish retry` | warn | `correlationId`, `attempt`, `maxAttempts`, `nextDelayMs`, `code`, `subcode`, `message` |
+| `publish done` | info | `correlationId`, `account`, `publicationId`, `status`, `remoteId`, `recovered`, `durationMs` |
+| `publish failed` | error | `correlationId`, `phase` (`resolve`, `validate`, `quota`, `staging`, `publish`, `record`), `code`, `subcode`, `retryable`, `message`, `durationMs` |
+| `request` / `request failed` | info / error | `method`, `route` (sin query), `status`, `durationMs`; los fallos añaden `code`, `subcode`, `retryable`, `message` |
+
+Cada petición HTTP deja exactamente una línea al terminar, salvo `/health`, que
+se consulta en bucle. Un fallo se escribe una sola vez, en el manejador de
+errores, con el motivo. Cada sondeo del contenedor va en `debug` a propósito: un
+reel puede preguntarse decenas de veces y el resumen `container ready` ya dice
+cuántos sondeos fueron y cuánto tardó; para seguir un contenedor lento, arranca
+con `LOG_LEVEL=debug`.
+
+Nunca se registran, por diseño y por una función de redacción central: tokens ni
+credenciales, cabeceras, URLs firmadas (se quita la query), el texto del pie, el
+cuerpo de las peticiones, rutas de ficheros de la máquina ni el id numérico de
+la cuenta (la cuenta se identifica por su nombre de registro).
+`publications.jsonl` es el libro de publicaciones y mantiene su formato: un
+registro por publicación y los eventos `publish_failed` y `publish_retry`.
+
 ## Desarrollo
 
 ```bash

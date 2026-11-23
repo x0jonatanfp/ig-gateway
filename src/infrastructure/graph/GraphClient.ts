@@ -1,5 +1,6 @@
 import { appendFile, readFile, writeFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import type { Account } from '../../domain/Account.js';
 import type { Publication } from '../../domain/Publication.js';
 import { createQuota, type Quota } from '../../domain/Quota.js';
@@ -8,7 +9,7 @@ import type { Comment, DiscoveredAccount, DiscoveredMedia, Insight, InstagramGat
 import type { OnlineFollowersDay } from '../../domain/ActiveHours.js';
 import { DEFAULT_AUDIO_LIMIT, MAX_AUDIO_LIMIT, validateAudioVolume, type AudioTrack, type AudioType } from '../../domain/Audio.js';
 import { containerFailureDetail, containerFailureSubcode } from '../../domain/ContainerStatus.js';
-import { logger } from '../logging/Logger.js';
+import { appLogger } from '../logging/Logger.js';
 
 interface GraphErrorBody { error?: { message?: string; code?: number; error_subcode?: number; fbtrace_id?: string; is_transient?: boolean }; }
 interface GraphResponse {
@@ -229,6 +230,10 @@ export class GraphClient implements InstagramGatewayPort {
   }
 
   async publish(request: PublishRequest): Promise<Publication> {
+    // Correlación: todas las líneas de una misma publicación comparten este id.
+    // Lo genera el caso de uso antes del staging; si no llega, se crea aquí para
+    // no dejar líneas sueltas sin identificar.
+    const correlationId = request.correlationId ?? `publish-${randomUUID()}`;
     if (request.type === 'story' && request.collaborators?.length) {
       throw new PublicationError('Collaborators are not supported for stories', { code: 'INVALID_REQUEST', retryable: false, status: 400 });
     }
@@ -239,6 +244,7 @@ export class GraphClient implements InstagramGatewayPort {
     if (request.audioId === undefined && (request.audioVolume !== undefined || request.videoVolume !== undefined)) throw invalidRequestError('audio_volume and video_volume require audio_id');
     if (request.dryRun || this.dryRun) {
       // Dry-run no toca la API: ni containers ni publicación.
+      appLogger.info('publish dry run', { correlationId, type: request.type, pieces: request.media.length });
       return {
         id: `dry-run-${Date.now()}`,
         accountId: request.account.id,
@@ -251,10 +257,10 @@ export class GraphClient implements InstagramGatewayPort {
     }
     const containerIds: string[] = [];
     for (const media of request.media) {
-      const containerId = await this.createMediaContainer(request, media);
+      const containerId = await this.createMediaContainer(request, media, correlationId);
       // Meta rechaza el contenedor del carrusel si un hijo de vídeo no ha
       // terminado de procesarse: se espera a cada vídeo antes de seguir.
-      if (request.type === 'carousel' && isVideoMedia(media)) await this.waitForContainer(request.account, containerId, true);
+      if (request.type === 'carousel' && isVideoMedia(media)) await this.waitForContainer(request.account, containerId, true, correlationId);
       containerIds.push(containerId);
     }
 
@@ -269,21 +275,23 @@ export class GraphClient implements InstagramGatewayPort {
       const carousel = await this.request<GraphResponse>(request.account, `/${request.account.id}/media`, carouselParams, 'POST');
       if (!carousel.id) throw new PublicationError('Graph did not return a carousel container id', { code: 'REMOTE_FAILURE', retryable: true });
       creationId = carousel.id;
+      appLogger.info('carousel container created', { correlationId, containerId: carousel.id, children: containerIds.length });
     }
 
     const isVideo = request.type === 'reel' || request.media.some(isVideoMedia);
-    await this.waitForContainer(request.account, creationId, isVideo);
+    await this.waitForContainer(request.account, creationId, isVideo, correlationId);
     const publishStartedAt = this.now();
     let published: GraphResponse;
+    appLogger.info('media_publish sent', { correlationId, containerId: creationId });
     try {
       published = await this.request<GraphResponse>(request.account, `/${request.account.id}/media_publish`, { creation_id: creationId }, 'POST');
     } catch (error) {
       // Meta ha llegado a publicar y responder «Application request limit
       // reached» (código 4): reintentar a ciegas duplicó el post el 12-sep.
       // Antes de decidir nada, se comprueba en la cuenta si la pieza salió.
-      const verdict = await this.verifyPublication(request.account, request.caption.value, publishStartedAt);
+      const verdict = await this.verifyPublication(request.account, request.caption.value, publishStartedAt, correlationId);
       if (verdict.outcome === 'published') {
-        logger.warn(`[ig-gateway] media_publish falló pero la publicación sí salió (${verdict.mediaId}); se da por publicada`);
+        appLogger.warn('media_publish failed but the publication exists', { correlationId, containerId: creationId, remoteId: verdict.mediaId });
         this.bumpCachedQuota(request.account.id);
         return {
           id: `publication-${verdict.mediaId}`,
@@ -313,6 +321,7 @@ export class GraphClient implements InstagramGatewayPort {
       );
     }
     if (!published.id) throw new PublicationError('Graph did not return a published media id', { code: 'REMOTE_FAILURE', retryable: true });
+    appLogger.info('media_publish accepted', { correlationId, containerId: creationId, remoteId: published.id });
     this.bumpCachedQuota(request.account.id);
     return { id: `publication-${published.id}`, accountId: request.account.id, mediaIds: request.media.map((item) => item.id), type: request.type, caption: request.caption.value, status: 'published', remoteId: published.id, createdAt: new Date().toISOString() };
   }
@@ -519,21 +528,27 @@ export class GraphClient implements InstagramGatewayPort {
    * conexión nueva. En los reintentos se añade un parámetro a la URL para que
    * Meta no reutilice la descarga fallida que tenga en caché.
    */
-  private async createMediaContainer(request: PublishRequest, media: PublishRequest['media'][number]): Promise<string> {
+  private async createMediaContainer(request: PublishRequest, media: PublishRequest['media'][number], correlationId: string): Promise<string> {
     let lastError: unknown;
     for (let attempt = 1; attempt <= this.mediaAttempts; attempt += 1) {
       const params = this.mediaParams(request, this.mediaForAttempt(media, attempt), request.type === 'carousel');
       try {
         const container = await this.request<GraphResponse>(request.account, `/${request.account.id}/media`, params, 'POST');
         if (!container.id) throw new PublicationError('Graph did not return a media container id', { code: 'REMOTE_FAILURE', retryable: true });
-        if (attempt > 1) logger.warn(`[ig-gateway] contenedor de ${media.id} creado al intento ${attempt}/${this.mediaAttempts}`);
+        appLogger.info('media container created', { correlationId, mediaId: media.id, containerId: container.id, attempt });
         return container.id;
       } catch (error) {
         lastError = error;
         const retryable = error instanceof PublicationError && error.retryable;
         if (!retryable || attempt === this.mediaAttempts) throw error;
-        const subcode = error.subcode === undefined ? '' : ` (subcode ${error.subcode})`;
-        logger.warn(`[ig-gateway] Meta no se descargó ${media.id}${subcode}; reintento ${attempt + 1}/${this.mediaAttempts}`);
+        appLogger.warn('media container retry', {
+          correlationId,
+          mediaId: media.id,
+          attempt,
+          maxAttempts: this.mediaAttempts,
+          ...(error instanceof PublicationError && error.subcode !== undefined ? { subcode: error.subcode } : {}),
+          ...(error instanceof Error ? { message: error.message } : {}),
+        });
         await this.sleep(this.mediaRetryDelayMs);
       }
     }
@@ -588,16 +603,30 @@ export class GraphClient implements InstagramGatewayPort {
     if (options.allowShareToFeed && request.shareToFeed !== undefined) params.share_to_feed = String(request.shareToFeed);
   }
 
-  private async waitForContainer(account: Account, containerId: string, isVideo = false): Promise<void> {
+  private async waitForContainer(account: Account, containerId: string, isVideo: boolean, correlationId: string): Promise<void> {
     if (!containerId) throw new PublicationError('Graph did not return a container id', { code: 'REMOTE_FAILURE', retryable: true });
     const profile = isVideo ? this.videoPolls : this.imagePolls;
     const startedAt = Date.now();
     let interval = profile.intervalMs;
+    let polls = 0;
     for (let attempt = 0; attempt < profile.maxAttempts && Date.now() - startedAt <= profile.timeoutMs; attempt += 1) {
       // `status` lleva el subcódigo del fallo cuando `status_code` es ERROR:
       // sin él, un reel roto solo decía «ERROR» y no había forma de saber por qué.
       const result = await this.request<GraphResponse>(account, `/${containerId}`, { fields: 'status_code,status' });
-      if (result.status_code === 'FINISHED') return;
+      polls += 1;
+      // Cada sondeo va en debug: un vídeo puede preguntarse decenas de veces y
+      // el resumen en info ya dice cuántos fueron y cuánto tardó.
+      appLogger.debug('container status', {
+        correlationId,
+        containerId,
+        statusCode: result.status_code ?? 'UNKNOWN',
+        ...(result.status === undefined ? {} : { status: result.status }),
+        poll: polls,
+      });
+      if (result.status_code === 'FINISHED') {
+        appLogger.info('container ready', { correlationId, containerId, polls, durationMs: Date.now() - startedAt });
+        return;
+      }
       if (result.status_code === 'ERROR' || result.status_code === 'EXPIRED') {
         const subcode = containerFailureSubcode(result.status);
         throw new PublicationError(
@@ -624,6 +653,7 @@ export class GraphClient implements InstagramGatewayPort {
     account: Account,
     caption: string,
     since: number,
+    correlationId: string,
   ): Promise<{ outcome: 'published'; mediaId: string } | { outcome: 'absent' } | { outcome: 'unknown' }> {
     const normalize = (text: string): string => text.replace(/\s+/g, ' ').trim();
     const wanted = normalize(caption);
@@ -634,6 +664,9 @@ export class GraphClient implements InstagramGatewayPort {
         const response = await this.request<GraphResponse>(account, `/${account.id}/media`, { fields: 'id,caption,timestamp', limit: '5' });
         items = (response.data ?? []) as Array<{ id?: string; caption?: string; timestamp?: string }>;
       } catch {
+        // Sin respuesta de la cuenta no se puede asegurar nada: queda en warn
+        // para que conste que la verificación no llegó a hacerse.
+        appLogger.warn('publication check failed', { correlationId, attempt: attempt + 1 });
         return { outcome: 'unknown' };
       }
       const match = items.find((item) => {
@@ -661,7 +694,7 @@ export class GraphClient implements InstagramGatewayPort {
       // Tope de 20 s para no agotar los timeouts de quien llama (habitualmente 30 s).
       const waitMs = Math.min(20_000, Math.max(0, oldest + 60_000 - this.now()));
       if (waitMs > 0) {
-        logger.warn(`[ig-gateway] tope de ${this.maxCallsPerMinute} llamadas/minuto: esperando ${Math.round(waitMs / 1000)}s`);
+        appLogger.warn('call throttle', { maxCallsPerMinute: this.maxCallsPerMinute, waitMs });
         await this.sleep(waitMs);
       }
       prune();

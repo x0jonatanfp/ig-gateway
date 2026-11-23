@@ -4,7 +4,7 @@ import { PublicationError } from '../src/domain/PublicationError.js';
 import type { Account } from '../src/domain/Account.js';
 
 const full: Account = { id: '1', username: 'test', accessToken: 'token', tokenFingerprint: 'hash', capabilities: new Set(['media', 'stories', 'quota', 'alt_text', 'user_tags', 'collaborators', 'location']) };
-const publish = (account = full, gateway = new MemoryGateway(account), staging = new MemoryStaging(), log = new MemoryLog(), attempts = 3) => new PublishMedia(gateway, staging, new MemoryAccountResolver(account), log, attempts, async () => undefined);
+const publish = (account = full, gateway = new MemoryGateway(account), staging = new MemoryStaging(), log = new MemoryLog(), attempts = 3) => new PublishMedia(gateway, staging, new MemoryAccountResolver(account), log, { maxAttempts: attempts, sleep: async () => undefined });
 
 it('covers every optional capability and type restriction', async () => {
   for (const [field, value] of [['altText', 'alt'], ['userTags', [{ username: 'u' }]], ['collaborators', ['u']], ['locationId', 'place']] as const) {

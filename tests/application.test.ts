@@ -4,14 +4,14 @@ import { PublicationError } from '../src/domain/PublicationError.js';
 import type { Account } from '../src/domain/Account.js';
 
 const account: Account = { id: 'account-1', username: 'test', accessToken: 'token', tokenFingerprint: 'hash', capabilities: new Set(['media', 'stories', 'quota']) };
-function setup() { const gateway = new MemoryGateway(account); const staging = new MemoryStaging(); const log = new MemoryLog(); const publisher = new PublishMedia(gateway, staging, new MemoryAccountResolver(account), log, 3, async () => undefined); return { gateway, staging, log, publisher }; }
+function setup() { const gateway = new MemoryGateway(account); const staging = new MemoryStaging(); const log = new MemoryLog(); const publisher = new PublishMedia(gateway, staging, new MemoryAccountResolver(account), log, { maxAttempts: 3, sleep: async () => undefined }); return { gateway, staging, log, publisher }; }
 
 describe('application', () => {
   it('publishes and cleans staged media', async () => { const { publisher, gateway, staging } = setup(); const result = await publisher.execute({ projectPath: '/tmp/project', media: [{ path: '/tmp/original.jpg' }], caption: 'ok' }); expect(result.status).toBe('published'); expect(gateway.publishCalls).toBe(1); expect(staging.cleanupCalls).toBe(1); expect(staging.items).toHaveLength(0); });
   it('retries transient errors and then succeeds', async () => { const { publisher, gateway, log } = setup(); gateway.nextError = new PublicationError('retry', { code: 'RATE_LIMIT', subcode: 9007, retryable: true }); const result = await publisher.execute({ projectPath: '/tmp/project', media: [{ path: '/tmp/a.jpg' }] }); expect(result.status).toBe('published'); expect(gateway.publishCalls).toBe(2); expect(log.events).toHaveLength(1); });
   it('waits between retries instead of firing at once', async () => {
     const gateway = new MemoryGateway(account); const staging = new MemoryStaging(); const log = new MemoryLog(); const waits: number[] = [];
-    const publisher = new PublishMedia(gateway, staging, new MemoryAccountResolver(account), log, 2, async (ms) => { waits.push(ms); });
+    const publisher = new PublishMedia(gateway, staging, new MemoryAccountResolver(account), log, { maxAttempts: 2, sleep: async (ms) => { waits.push(ms); } });
     gateway.nextError = new PublicationError('rate limit', { code: 'RATE_LIMIT', retryable: true });
     await publisher.execute({ projectPath: '/tmp/project', media: [{ path: '/tmp/a.jpg' }] });
     expect(waits).toEqual([5_000]);

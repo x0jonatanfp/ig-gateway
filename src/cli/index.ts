@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { GraphClient, DiskMediaStaging, EnvAccountResolver, installEnvFile, JsonlPublicationLog } from '../infrastructure/index.js';
 import { CheckAccount, DiscoverAccount, GetActiveHours, GetInsights, GetQuota, ListMedia, ModerateComment, PublishMedia, PublishStory, SearchAudio, SweepStaging } from '../application/index.js';
+import { appLogger } from '../infrastructure/logging/Logger.js';
 import { PublicationError } from '../domain/PublicationError.js';
 import { toPublicAccount } from '../domain/Account.js';
 import type { UserTag } from '../domain/MediaItem.js';
@@ -33,7 +34,7 @@ async function main(): Promise<unknown> {
       const userTags = userTagsRaw ? JSON.parse(userTagsRaw) as UserTag[] : undefined;
       const collaborators = list('--collaborators');
       const input = { projectPath: required('--project'), media, caption: get('--caption') ?? '', type: (get('--type') ?? 'photo') as 'photo' | 'carousel' | 'reel' | 'story', ...(get('--idempotency-key') === undefined ? {} : { idempotencyKey: get('--idempotency-key') }), ...(get('--env-file') === undefined ? {} : { envFile: get('--env-file') }), ...(has('--dry-run') ? { dryRun: true } : {}), ...(get('--alt-text') === undefined ? {} : { altText: get('--alt-text') }), ...(userTags === undefined ? {} : { userTags }), ...(collaborators.length === 0 ? {} : { collaborators }), ...(get('--location-id') === undefined ? {} : { locationId: get('--location-id') }), ...(get('--share-to-feed') === undefined ? {} : { shareToFeed: get('--share-to-feed') !== 'false' }), ...(get('--cover-url') === undefined ? {} : { coverUrl: get('--cover-url') }), ...(get('--thumb-offset') === undefined ? {} : { thumbOffset: Number(get('--thumb-offset')) }), ...(get('--audio-name') === undefined ? {} : { audioName: get('--audio-name') }) };
-      return input.type === 'story' ? new PublishStory(d.gateway, d.staging, d.resolver, d.log).execute(input) : new PublishMedia(d.gateway, d.staging, d.resolver, d.log).execute(input);
+      return input.type === 'story' ? new PublishStory(d.gateway, d.staging, d.resolver, d.log, { logger: appLogger }).execute(input) : new PublishMedia(d.gateway, d.staging, d.resolver, d.log, { logger: appLogger }).execute(input);
     }
     case 'check': {
       const { account, calls } = await new CheckAccount(d.gateway, d.resolver).execute(required('--project'), get('--env-file'));

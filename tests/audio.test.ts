@@ -27,7 +27,7 @@ function paramsOf(call: { url?: string; init?: RequestInit }): URLSearchParams {
   if (call.init?.body instanceof URLSearchParams) return call.init.body;
   return new URL(String(call.url ?? 'https://graph.facebook.com/')).searchParams;
 }
-const publish = (gateway: MemoryGateway, staging = new MemoryStaging()) => new PublishMedia(gateway, staging, new MemoryAccountResolver(account), new MemoryLog(), 1, async () => undefined);
+const publish = (gateway: MemoryGateway, staging = new MemoryStaging()) => new PublishMedia(gateway, staging, new MemoryAccountResolver(account), new MemoryLog(), { maxAttempts: 1, sleep: async () => undefined });
 
 describe('GraphClient audio library', () => {
   it('searches with the Account IG user id and maps each track', async () => {

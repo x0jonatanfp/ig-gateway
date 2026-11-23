@@ -1,4 +1,6 @@
 import winston from 'winston';
+import type { LoggerPort } from '../../domain/Logger.js';
+import { redactFields } from './Redact.js';
 
 // Un único fichero de aplicación: aplicación y errores van juntos y la rotación
 // la hace logrotate. La ruta la fija la unidad con Environment=LOG_FILE.
@@ -23,3 +25,15 @@ export const logger = winston.createLogger({
     new winston.transports.File({ filename: logFile }),
   ],
 });
+
+/**
+ * Vista del logger para el resto del código: el mismo winston, con los campos ya
+ * redactados. Todo lo que se registra pasa por aquí para que un token, el texto
+ * del pie o una ruta local no puedan acabar en el log por descuido.
+ */
+export const appLogger: LoggerPort = {
+  debug: (message, fields) => { logger.debug(message, redactFields(fields)); },
+  info: (message, fields) => { logger.info(message, redactFields(fields)); },
+  warn: (message, fields) => { logger.warn(message, redactFields(fields)); },
+  error: (message, fields) => { logger.error(message, redactFields(fields)); },
+};
