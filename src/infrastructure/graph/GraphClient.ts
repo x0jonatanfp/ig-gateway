@@ -3,9 +3,10 @@ import { readFileSync } from 'node:fs';
 import type { Account } from '../../domain/Account.js';
 import type { Publication } from '../../domain/Publication.js';
 import { createQuota, type Quota } from '../../domain/Quota.js';
-import { PublicationError, type PublicationErrorCode } from '../../domain/PublicationError.js';
+import { PublicationError, invalidRequestError, type PublicationErrorCode } from '../../domain/PublicationError.js';
 import type { Comment, DiscoveredAccount, DiscoveredMedia, Insight, InstagramGatewayPort, InstagramMediaItem, PublishRequest } from '../../domain/ports.js';
 import type { OnlineFollowersDay } from '../../domain/ActiveHours.js';
+import { DEFAULT_AUDIO_LIMIT, MAX_AUDIO_LIMIT, validateAudioVolume, type AudioTrack, type AudioType } from '../../domain/Audio.js';
 import { logger } from '../logging/Logger.js';
 
 interface GraphErrorBody { error?: { message?: string; code?: number; error_subcode?: number; fbtrace_id?: string; is_transient?: boolean }; }
@@ -22,6 +23,7 @@ interface GraphResponse {
   config?: { quota_total?: number; quota_duration?: number };
   comments?: { data?: Comment[] };
   data?: Array<Record<string, unknown>>;
+  audio?: Array<Record<string, unknown>>;
   paging?: { next?: string; cursors?: { after?: string } };
   business_discovery?: Record<string, unknown> & { media?: { data?: Array<Record<string, unknown>>; paging?: { cursors?: { after?: string } } } };
 }
@@ -230,6 +232,8 @@ export class GraphClient implements InstagramGatewayPort {
     if (request.collaborators && request.collaborators.length > 3) {
       throw new PublicationError('Instagram supports at most 3 collaborators', { code: 'INVALID_REQUEST', retryable: false, status: 400 });
     }
+    if (request.audioId !== undefined && request.type !== 'reel') throw invalidRequestError('audio_id is supported only for reels');
+    if (request.audioId === undefined && (request.audioVolume !== undefined || request.videoVolume !== undefined)) throw invalidRequestError('audio_volume and video_volume require audio_id');
     if (request.dryRun || this.dryRun) {
       // Dry-run no toca la API: ni containers ni publicación.
       return {
@@ -311,6 +315,43 @@ export class GraphClient implements InstagramGatewayPort {
   }
 
   async publishStory(request: PublishRequest): Promise<Publication> { return this.publish({ ...request, type: 'story' }); }
+
+  /**
+   * Biblioteca de audio de Instagram (Audio API del 1-jun-2026). `user_id` es la
+   * cuenta que consulta y `audio_type` separa la música de la colección de Meta
+   * (`music`) de los sonidos originales de reels (`original_sound`). Sin
+   * `search_query`, Meta devuelve lo que está de moda. Solo lectura.
+   */
+  async searchAudio(account: Account, audioType: AudioType, searchQuery?: string, limit = DEFAULT_AUDIO_LIMIT): Promise<readonly AudioTrack[]> {
+    const params: Record<string, string> = {
+      audio_type: audioType,
+      user_id: account.id,
+      limit: String(Math.min(limit, MAX_AUDIO_LIMIT)),
+    };
+    if (searchQuery !== undefined && searchQuery !== '') params.search_query = searchQuery;
+    const response = await this.request<GraphResponse>(account, '/ig_audio', params);
+    // La lista llega en `audio` (documentación de la Audio API, comprobado con una cuenta real el 23-nov-2026).
+    const entries = response.audio ?? [];
+    return entries.flatMap((entry) => {
+      const audioId = typeof entry.audio_id === 'string' ? entry.audio_id : undefined;
+      if (!audioId) return [];
+      // `on_platform_audio_preview_link` es un enlace estable a la app;
+      // `download_url` es una descarga temporal de Meta.
+      const preview = typeof entry.on_platform_audio_preview_link === 'string'
+        ? entry.on_platform_audio_preview_link
+        : typeof entry.download_url === 'string' ? entry.download_url : undefined;
+      return [{
+        audioId,
+        ...(typeof entry.title === 'string' ? { title: entry.title } : {}),
+        ...(typeof entry.display_artist === 'string' ? { displayArtist: entry.display_artist } : {}),
+        ...(typeof entry.ig_username === 'string' ? { username: entry.ig_username } : {}),
+        ...(typeof entry.audio_type === 'string' ? { audioType: entry.audio_type } : {}),
+        ...(typeof entry.duration_in_ms === 'number' ? { durationMs: entry.duration_in_ms } : {}),
+        ...(preview === undefined ? {} : { previewUrl: preview }),
+        ...(typeof entry.cover_artwork_thumbnail_uri === 'string' ? { coverArtworkUri: entry.cover_artwork_thumbnail_uri } : {}),
+      } satisfies AudioTrack];
+    });
+  }
 
   async moderateComment(account: Account, mediaId: string, action: 'list' | 'reply' | 'hide' | 'unhide' | 'delete' | 'open' | 'close', value?: string): Promise<Comment | Comment[]> {
     if (action === 'list') {
@@ -522,6 +563,15 @@ export class GraphClient implements InstagramGatewayPort {
       if (request.coverUrl !== undefined) params.cover_url = request.coverUrl;
       if (request.thumbOffset !== undefined) params.thumb_offset = String(request.thumbOffset);
       if (request.audioName !== undefined) params.audio_name = request.audioName;
+      if (request.audioId !== undefined) {
+        // `audio_name` es solo la etiqueta del audio original del vídeo; para
+        // usar la biblioteca de Meta hay que mandar el id y la mezcla en
+        // `audio_configuration`, un objeto JSON dentro del formulario.
+        const configuration: Record<string, string | number> = { audio_id: request.audioId };
+        if (request.audioVolume !== undefined) configuration.audio_volume = validateAudioVolume('audio_volume', request.audioVolume);
+        if (request.videoVolume !== undefined) configuration.video_volume = validateAudioVolume('video_volume', request.videoVolume);
+        params.audio_configuration = JSON.stringify(configuration);
+      }
       if (request.shareToFeed !== undefined) params.share_to_feed = String(request.shareToFeed);
     }
     return params;

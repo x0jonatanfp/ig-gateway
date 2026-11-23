@@ -21,8 +21,9 @@ export const INSTAGRAM_TOOL_DEFINITION = {
     "Instagram through the local ig-gateway (never talks to Meta). Answers in Spanish. " +
     "Read: check(project?) resolves the account + Meta calls; quota(project?); media(project?,limit?); " +
     "insights(media_id); active_hours(project?,timezone?) average followers online per hour (last ~30 days); comments(media_id); discover(username,project?,limit?) public data of another Business/Creator account; " +
+    "audio(project?,audio_type?,search_query?,limit?) Instagram audio library (music or original sounds) to attach to a reel; " +
     "publication_status(id). " +
-    "Write: publish_preview(media,type?,caption?,alt_text?,user_tags?,collaborators?,location_id?,share_to_feed?,cover_url?) dry run; " +
+    "Write: publish_preview(media,type?,caption?,alt_text?,user_tags?,collaborators?,location_id?,share_to_feed?,cover_url?,audio_id?,audio_volume?,video_volume?) dry run; " +
     "publish(same params + preview_id,confirm:true) requires a preview made in this same process with identical content; " +
     "reply_comment(media_id,text,confirm:true); hide_comment(comment_id,confirm:true). " +
     "project is a path whose .env has IG_ACCOUNT; falls back to IG_DEFAULT_PROJECT. Media = absolute paths that exist.",
@@ -47,7 +48,18 @@ export const INSTAGRAM_TOOL_DEFINITION = {
           limit: {
             type: "number",
             description:
-              "Máximo de piezas (1-100; por defecto 20). Acciones: media, discover.",
+              "Máximo de piezas (1-100; por defecto 20; en audio 1-50, por defecto 25). Acciones: media, discover, audio.",
+          },
+          audio_type: {
+            type: "string",
+            enum: ["music", "original_sound"],
+            description:
+              "music (colección de Meta, por defecto) u original_sound (audio original de un reel existente). Acción: audio.",
+          },
+          search_query: {
+            type: "string",
+            description:
+              "Palabras para filtrar el audio (título, artista). Sin ella, Meta devuelve lo que está de moda. Acción: audio.",
           },
           media: {
             type: "array",
@@ -105,6 +117,21 @@ export const INSTAGRAM_TOOL_DEFINITION = {
             type: "string",
             description:
               "URL de portada del reel. Acciones: publish_preview, publish.",
+          },
+          audio_id: {
+            type: "string",
+            description:
+              "Id del audio a adjuntar al reel, tal y como lo devuelve audio. Solo reels. Acciones: publish_preview, publish.",
+          },
+          audio_volume: {
+            type: "number",
+            description:
+              "Volumen del audio, entero 1-100 (100 por defecto). Exige audio_id. Acciones: publish_preview, publish.",
+          },
+          video_volume: {
+            type: "number",
+            description:
+              "Volumen del sonido original del vídeo, entero 1-100 (100 por defecto). Exige audio_id. Acciones: publish_preview, publish.",
           },
           preview_id: {
             type: "string",

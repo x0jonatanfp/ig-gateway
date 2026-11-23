@@ -91,6 +91,38 @@ describe("HTTP client routes and bodies", () => {
     );
   });
 
+  it("audio: GET /v1/audio with project, audio_type, search_query and limit", async () => {
+    const { impl, calls } = fakeFetch({ body: [] });
+    const gateway = createHttpIgGateway(config, { fetchImpl: impl });
+    await gateway.searchAudio("/p", "original_sound", "lluvia", 5);
+    expect(calls[0]?.url).toBe(
+      "http://127.0.0.1:4005/v1/audio?project=%2Fp&audio_type=original_sound&search_query=lluvia&limit=5",
+    );
+  });
+
+  it("publish: audio of a reel goes in the body", async () => {
+    const { impl, calls } = fakeFetch({
+      status: 201,
+      body: { id: "publication-1", status: "published" },
+    });
+    const gateway = createHttpIgGateway(config, { fetchImpl: impl });
+    await gateway.publish({
+      project: "/p",
+      media: ["/reel.mp4"],
+      type: "reel",
+      caption: "hola",
+      dryRun: true,
+      audioId: "403060247990261",
+      audioVolume: 80,
+      videoVolume: 40,
+    });
+    expect(JSON.parse(String(calls[0]?.init.body))).toMatchObject({
+      audioId: "403060247990261",
+      audioVolume: 80,
+      videoVolume: 40,
+    });
+  });
+
   it("publication: GET /v1/publications/:id", async () => {
     const { impl, calls } = fakeFetch({ body: { id: "publication-1" } });
     const gateway = createHttpIgGateway(config, { fetchImpl: impl });

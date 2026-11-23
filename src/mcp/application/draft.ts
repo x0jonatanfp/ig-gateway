@@ -9,7 +9,7 @@ import {
 import { previewHash } from "../domain/preview.js";
 import { resolveProject } from "./context.js";
 import type { UseCaseDeps } from "./context.js";
-import { str, stringList, userTagList } from "./fields.js";
+import { str, stringList, num, userTagList } from "./fields.js";
 import { fail } from "./outcome.js";
 
 export type DraftResolution =
@@ -82,6 +82,9 @@ export async function resolveDraft(
       ? params.share_to_feed
       : undefined;
   const userTags = userTagList(params, "user_tags");
+  const audioId = str(params, "audio_id") || undefined;
+  const audioVolume = num(params, "audio_volume");
+  const videoVolume = num(params, "video_volume");
 
   const draft: PublicationDraft = {
     media,
@@ -93,6 +96,9 @@ export async function resolveDraft(
     ...(locationId === undefined ? {} : { locationId }),
     ...(shareToFeed === undefined ? {} : { shareToFeed }),
     ...(coverUrl === undefined ? {} : { coverUrl }),
+    ...(audioId === undefined ? {} : { audioId }),
+    ...(audioVolume === undefined ? {} : { audioVolume }),
+    ...(videoVolume === undefined ? {} : { videoVolume }),
   };
   const invalid = validateDraft(draft);
   if (invalid) return { ok: false, outcome: fail(invalid) };

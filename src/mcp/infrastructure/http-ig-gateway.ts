@@ -5,6 +5,7 @@ import {
 } from "../domain/gateway-error.js";
 import type {
   AccountCheck,
+  AudioTrackRecord,
   CommentRecord,
   DiscoveredAccount,
   IgGatewayPort,
@@ -174,6 +175,16 @@ export function createHttpIgGateway(
         query("/v1/media", { project, limit }),
       );
     },
+    async searchAudio(project, audioType, searchQuery, limit) {
+      return request<readonly AudioTrackRecord[]>(
+        query("/v1/audio", {
+          project,
+          audio_type: audioType,
+          search_query: searchQuery,
+          limit,
+        }),
+      );
+    },
     async getInsights(project, mediaId) {
       return request<readonly InsightRecord[]>(
         query(`/v1/media/${encodeURIComponent(mediaId)}/insights`, { project }),
@@ -238,6 +249,9 @@ export function createHttpIgGateway(
       if (input.locationId !== undefined) body.locationId = input.locationId;
       if (input.shareToFeed !== undefined) body.shareToFeed = input.shareToFeed;
       if (input.coverUrl !== undefined) body.coverUrl = input.coverUrl;
+      if (input.audioId !== undefined) body.audioId = input.audioId;
+      if (input.audioVolume !== undefined) body.audioVolume = input.audioVolume;
+      if (input.videoVolume !== undefined) body.videoVolume = input.videoVolume;
       return request<PublicationRecord>(
         "/v1/publications",
         { method: "POST", body: JSON.stringify(body) },

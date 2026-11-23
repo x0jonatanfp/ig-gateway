@@ -18,6 +18,8 @@ un servidor MCP para agentes.
   una pieza.
 - Dice a qué horas están en línea los seguidores de la cuenta: media por hora de
   los últimos 30 días, en la zona horaria que pidas.
+- Busca en la biblioteca de audio de Instagram (música de Meta o sonidos
+  originales) y adjunta una pista al publicar un reel.
 - Lista, responde y oculta comentarios.
 - Lee los datos públicos (perfil, contadores y hasta 100 piezas) de **otra**
   cuenta Business/Creator mediante Business Discovery.
@@ -49,6 +51,7 @@ El servidor expone una única tool, `instagram`, con `action` más `params`:
 | `check` | lectura | Resuelve la cuenta del proyecto e informa de contadores y llamadas a Meta. |
 | `quota` | lectura | Cuota de publicación usada, total y restante. |
 | `media` | lectura | Últimas piezas con sus permalinks canónicos. |
+| `audio` | lectura | Biblioteca de audio de Instagram: música de Meta o sonidos originales, con los ids para adjuntar a un reel. |
 | `insights` | lectura | Métricas de una pieza (`media_id`). |
 | `active_hours` | lectura | Media de seguidores en línea por hora (últimos 30 días) en la `timezone` pedida. |
 | `comments` | lectura | Comentarios de una pieza. |
@@ -224,6 +227,10 @@ que funciona desde cualquier directorio.
 - `alt_text`, `user_tags`, `collaborators` (máximo 3, no en historias),
   `cover_url`, `thumb_offset`, `audio_name` y `share_to_feed` (solo reels) se
   admiten según lo que permita cada tipo; `location_id` no vale en carrusel.
+- Los reels admiten una pista de la biblioteca de audio: `audio_id` y, si hace
+  falta, `audio_volume` y `video_volume` (enteros 1–100) llegan a Meta como
+  `audio_configuration` al crear el contenedor. `audio_name` es otra cosa: la
+  etiqueta del audio original del propio vídeo.
 - **No hay programación** (`published=false` con `scheduled_publish_time`
   devuelve HTTP 500, código 1), ni borradores, ni borrado por API: la
   programación es del cron o la cola de cada proyecto, y lo publicado se quita a
@@ -288,6 +295,19 @@ Horas activas de los seguidores (métrica `online_followers` de Meta):
 ```bash
 node dist/cli/index.js active-hours --project /ruta/al/proyecto --timezone Europe/Madrid --json
 ```
+
+Audio para un reel (solo lectura):
+
+```bash
+node dist/cli/index.js audio --project /ruta/al/proyecto --type music --query "example" --limit 10 --json
+```
+
+Por HTTP: `GET /v1/audio?project=…&audio_type=music&search_query=…&limit=…`.
+`audio_type` es `music` (la colección de Meta, por defecto) u `original_sound`
+(audios tomados de reels existentes); sin `search_query` Meta devuelve lo que
+está de moda. Cada resultado trae el `audioId`, el título, el artista o la
+cuenta, la duración y un enlace de previsualización. Pasa ese `audioId` (con
+`audioVolume` y `videoVolume` si la mezcla lo necesita) al publicar un reel.
 
 Por HTTP: `GET /v1/account/active-hours?project=…&timezone=…` (UTC si no se
 pasa `timezone`; una zona que no existe da `INVALID_REQUEST`). Devuelve la media

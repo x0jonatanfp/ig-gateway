@@ -17,6 +17,8 @@ server for agents.
   single post.
 - Tells you when the account's followers are online: the average per hour over
   the last 30 days, in the time zone you ask for.
+- Searches Instagram's audio library (Meta's music or original sounds) and
+  attaches a track to a reel when publishing it.
 - Lists, replies to and hides comments.
 - Reads public data (profile, counters, up to 100 posts) of a **different**
   Business/Creator account through Business Discovery.
@@ -48,6 +50,7 @@ The server exposes one tool, `instagram`, with `action` plus `params`:
 | `check` | read | Resolves the project's account and reports counters plus Meta call stats. |
 | `quota` | read | Publishing quota used, total and remaining. |
 | `media` | read | Recent posts with their canonical permalinks. |
+| `audio` | read | Instagram audio library: Meta's music or original sounds, with the ids to attach to a reel. |
 | `insights` | read | Metrics of one post (`media_id`). |
 | `active_hours` | read | Average followers online per hour (last 30 days) in the requested `timezone`. |
 | `comments` | read | Comments of one post. |
@@ -218,6 +221,10 @@ run from any directory.
 - `alt_text`, `user_tags`, `collaborators` (max 3, not in stories), `cover_url`,
   `thumb_offset`, `audio_name` and `share_to_feed` (reels only) are supported as
   far as each type allows; `location_id` is not allowed in carousels.
+- Reels can carry a track from the audio library: `audio_id` plus the optional
+  `audio_volume` and `video_volume` (integers 1–100) reach Meta as
+  `audio_configuration` when the container is created. `audio_name` is something
+  else: the label of the video's own original audio.
 - **No scheduling** (`published=false` with `scheduled_publish_time` returns HTTP
   500, code 1), no drafts and no deletion through the API: scheduling belongs to
   each project's cron or queue, and what is published is removed by hand in the
@@ -283,6 +290,19 @@ When followers are online (Meta's `online_followers` metric):
 ```bash
 node dist/cli/index.js active-hours --project /path/to/project --timezone Europe/Madrid --json
 ```
+
+Audio for a reel (read-only):
+
+```bash
+node dist/cli/index.js audio --project /path/to/project --type music --query "example" --limit 10 --json
+```
+
+Over HTTP: `GET /v1/audio?project=…&audio_type=music&search_query=…&limit=…`.
+`audio_type` is `music` (Meta's collection, the default) or `original_sound`
+(sounds taken from existing reels); without `search_query` Meta returns what is
+trending. Each result carries the `audioId`, the title, the artist or account,
+the duration and a preview link. Pass that `audioId` (with `audioVolume` and
+`videoVolume` if the mix needs it) when publishing a reel.
 
 Over HTTP: `GET /v1/account/active-hours?project=…&timezone=…` (UTC when no
 `timezone` is given; an unknown zone gives `INVALID_REQUEST`). It returns the

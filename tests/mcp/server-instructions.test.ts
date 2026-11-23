@@ -23,6 +23,7 @@ async function connectedClient(): Promise<Client> {
         quotaRemaining: 100,
       }),
       listMedia: async () => [],
+      searchAudio: async () => [],
       getInsights: async () => [],
       getActiveHours: async () => ({ timeZone: "UTC", days: 0, hours: [], peak: [] }),
       getPublication: async () => ({ id: "p" }),

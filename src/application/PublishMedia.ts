@@ -1,7 +1,8 @@
+import { validateAudioVolume } from '../domain/Audio.js';
 import { Caption } from '../domain/Caption.js';
 import { hasCapability, mediaCapabilityFor } from '../domain/Account.js';
 import { isQuotaExhausted } from '../domain/Quota.js';
-import { PublicationError } from '../domain/PublicationError.js';
+import { PublicationError, invalidRequestError } from '../domain/PublicationError.js';
 import { validateMediaType, type MediaType } from '../domain/MediaItem.js';
 import type { AccountResolverPort, InstagramGatewayPort, MediaInput, MediaStagingPort, PublicationLogPort } from '../domain/ports.js';
 
@@ -21,6 +22,9 @@ export interface PublishMediaInput {
   coverUrl?: string;
   thumbOffset?: number;
   audioName?: string;
+  audioId?: string;
+  audioVolume?: number;
+  videoVolume?: number;
 }
 
 export class PublishMedia {
@@ -45,6 +49,7 @@ export class PublishMedia {
     const type = input.type ?? 'photo';
     validateMediaType(type, input.media.length);
     this.validateCapabilities(account, type, input);
+    this.validateAudio(input);
     const quota = await this.gateway.getQuota(account);
     if (isQuotaExhausted(quota)) throw new PublicationError('Instagram publishing quota exhausted', { code: 'QUOTA_EXHAUSTED', retryable: false });
 
@@ -57,7 +62,7 @@ export class PublishMedia {
         const delayMs = this.retryDelaysMs[attempt - 1] ?? this.retryDelaysMs.at(-1) ?? 0;
         if (delayMs > 0) await this.sleep(delayMs);
         try {
-          const publication = await this.gateway.publish({ account, type, media: staged, caption, altText: input.altText, userTags: input.userTags, collaborators: input.collaborators, locationId: input.locationId, shareToFeed: input.shareToFeed, coverUrl: input.coverUrl, thumbOffset: input.thumbOffset, audioName: input.audioName, dryRun: input.dryRun });
+          const publication = await this.gateway.publish({ account, type, media: staged, caption, altText: input.altText, userTags: input.userTags, collaborators: input.collaborators, locationId: input.locationId, shareToFeed: input.shareToFeed, coverUrl: input.coverUrl, thumbOffset: input.thumbOffset, audioName: input.audioName, audioId: input.audioId, audioVolume: input.audioVolume, videoVolume: input.videoVolume, dryRun: input.dryRun });
           const result = input.idempotencyKey ? { ...publication, idempotencyKey: input.idempotencyKey } : publication;
           await this.log.append(result);
           return result;
@@ -82,6 +87,16 @@ export class PublishMedia {
     if (type === 'story' && input.collaborators?.length) this.rejectCapability('Collaborators are not supported for stories');
     if (input.collaborators && input.collaborators.length > 3) this.rejectCapability('Instagram supports at most 3 collaborators');
     if (input.shareToFeed !== undefined && type !== 'reel') this.rejectCapability('share_to_feed is supported only for reels');
+    if (input.audioId !== undefined && type !== 'reel') this.rejectCapability('audio_id is supported only for reels');
+  }
+
+  /** Los volúmenes son una entrada inválida (400), no un problema de permisos. */
+  private validateAudio(input: PublishMediaInput): void {
+    if (input.audioId === undefined && (input.audioVolume !== undefined || input.videoVolume !== undefined)) {
+      throw invalidRequestError('audio_volume and video_volume require audio_id');
+    }
+    if (input.audioVolume !== undefined) validateAudioVolume('audio_volume', input.audioVolume);
+    if (input.videoVolume !== undefined) validateAudioVolume('video_volume', input.videoVolume);
   }
 
   private rejectCapability(message: string): never { throw new PublicationError(message, { code: 'PERMISSION', retryable: false, status: 403 }); }

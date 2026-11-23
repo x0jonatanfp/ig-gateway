@@ -7,5 +7,6 @@ export * from './ListMedia.js';
 export * from './ModerateComment.js';
 export * from './PublishMedia.js';
 export * from './PublishStory.js';
+export * from './SearchAudio.js';
 export * from './SweepStaging.js';
 export * from './memory.js';

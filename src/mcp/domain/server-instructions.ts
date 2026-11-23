@@ -13,7 +13,7 @@
 export const IG_SERVER_INSTRUCTIONS = `Publicas en Instagram a través del gateway local \`ig-gateway\`. Este MCP no habla con Meta ni guarda tokens de Meta: la cuenta sale del proyecto y todo pasa por el gateway.
 
 ## Cuándo usarlo
-- Publicar foto, carrusel (2-10), reel o historia; responder u ocultar comentarios; leer cuota, cuenta y piezas; leer los datos públicos de OTRA cuenta profesional; diagnosticar la cuenta antes de una tanda.
+- Publicar foto, carrusel (2-10), reel o historia; responder u ocultar comentarios; leer cuota, cuenta y piezas; buscar audio (música de Meta o sonidos originales) para un reel; leer los datos públicos de OTRA cuenta profesional; diagnosticar la cuenta antes de una tanda.
 
 ## Reglas de seguridad
 - No publiques por iniciativa propia: solo con petición directa y después de enseñar el resumen y recibir el sí.
@@ -27,6 +27,7 @@ export const IG_SERVER_INSTRUCTIONS = `Publicas en Instagram a través del gatew
 ## Flujo recomendado
 - Si dudas de la cuenta o del consumo: \`check\` y \`quota\`. \`media\` da permalinks canónicos (no inventes URLs de Instagram).
 - Publicar: \`publish_preview\` con las rutas absolutas y el caption final; enseña tipo, nº de piezas y caption; espera confirmación; \`publish\` con \`preview_id\` y \`confirm: true\`; repite el id y el estado sin adornarlos.
+- Reel con música: \`audio\` busca por palabras (\`audio_type=music\`) o sonidos originales; el \`audio_id\` elegido va a \`publish_preview\` con \`type=reel\` (más \`audio_volume\`/\`video_volume\` si hay que mezclar), y sigue el flujo de dos pasos.
 - Moderar: \`comments\` para ver y obtener el id; \`reply_comment\` con el id de la pieza o \`hide_comment\` con el del comentario.
 - Si la respuesta dice \`recovered: true\`, Meta falló al responder pero la pieza sí salió: no reintentes, explícalo.
 - Tras publicar, si hace falta el permalink, \`media\` o \`publication_status\`.
@@ -34,6 +35,7 @@ export const IG_SERVER_INSTRUCTIONS = `Publicas en Instagram a través del gatew
 ## Límites reales y errores
 - Foto, reel e historia: exactamente 1 pieza. Carrusel: 2-10. Caption 2200 caracteres y 5 hashtags (20 menciones).
 - Colaboradores: máximo 3 y no en historias. \`location_id\` no vale en carrusel. \`share_to_feed\` solo en reels.
+- \`audio_id\` solo vale en reels y \`audio_volume\`/\`video_volume\` son enteros 1-100. No lo confundas con la etiqueta del audio original que ya trae el vídeo: esa no elige música.
 - Cuota de publicación: 100 piezas cada 24 h. No hay programación, ni borradores, ni borrado por API: lo publicado se quita a mano en la app.
 - \`discover\` solo lee cuentas Business/Creator; una cuenta personal o inexistente da \`NOT_FOUND\`. Las \`mediaUrl\`/\`thumbnailUrl\` caducan y los vídeos traen \`thumbnailUrl\`: si hacen falta, descárgalas en el momento.
 - \`insights\` devuelve las métricas de una pieza (\`media_id\`, que sale de \`media\`). No inventes métricas ni llames a Meta por tu cuenta.

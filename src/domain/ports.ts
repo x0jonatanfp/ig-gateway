@@ -1,5 +1,6 @@
 import type { Account } from './Account.js';
 import type { OnlineFollowersDay } from './ActiveHours.js';
+import type { AudioTrack, AudioType } from './Audio.js';
 import type { Caption } from './Caption.js';
 import type { MediaItem, MediaType, UserTag } from './MediaItem.js';
 import type { Publication } from './Publication.js';
@@ -17,7 +18,12 @@ export interface PublishRequest {
   shareToFeed?: boolean;
   coverUrl?: string;
   thumbOffset?: number;
+  /** Etiqueta del audio original del vídeo (`audio_name`); no elige música. */
   audioName?: string;
+  /** Audio de la biblioteca de Meta que se adjunta al reel (`audio_configuration`). */
+  audioId?: string;
+  audioVolume?: number;
+  videoVolume?: number;
   dryRun?: boolean;
 }
 
@@ -92,6 +98,8 @@ export interface InstagramGatewayPort {
   getOnlineFollowers(account: Account): Promise<readonly OnlineFollowersDay[]>;
   /** Piezas ya publicadas en la cuenta, con su permalink canónico. */
   listMedia(account: Account, limit?: number): Promise<readonly InstagramMediaItem[]>;
+  /** Biblioteca de audio de Instagram para adjuntar a un reel (solo lectura). */
+  searchAudio(account: Account, audioType: AudioType, searchQuery?: string, limit?: number): Promise<readonly AudioTrack[]>;
   /** Lectura pública de OTRA cuenta Business/Creator por su username (solo lectura). */
   discoverAccount(account: Account, username: string, limit?: number): Promise<DiscoveredAccount>;
   /** Diagnóstico opcional: cuántas llamadas se han hecho a Meta. */

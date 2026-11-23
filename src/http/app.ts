@@ -1,5 +1,5 @@
 import express, { type Request, type Response, type NextFunction } from 'express';
-import { CheckAccount, DiscoverAccount, GetActiveHours, GetInsights, GetQuota, ListMedia, ModerateComment, PublishMedia, PublishStory } from '../application/index.js';
+import { CheckAccount, DiscoverAccount, GetActiveHours, GetInsights, GetQuota, ListMedia, ModerateComment, PublishMedia, PublishStory, SearchAudio } from '../application/index.js';
 import type { MediaInput, InstagramGatewayPort, MediaStagingPort, AccountResolverPort, PublicationLogPort } from '../domain/index.js';
 import { PublicationError } from '../domain/PublicationError.js';
 import { toPublicAccount } from '../domain/Account.js';
@@ -30,9 +30,9 @@ export function createApp(dependencies: HttpDependencies) {
   app.use((request, response, next) => rateLimit(request, response, next, requests, limit, now()));
 
   app.post('/v1/publications', asyncRoute(async (request) => {
-    const body = request.body as { project?: string; media?: MediaInput[]; caption?: string; type?: 'photo' | 'carousel' | 'reel' | 'story'; idempotencyKey?: string; envFile?: string; dryRun?: boolean; altText?: string; userTags?: { username: string; x?: number; y?: number }[]; collaborators?: string[]; locationId?: string; shareToFeed?: boolean; coverUrl?: string; thumbOffset?: number; audioName?: string };
+    const body = request.body as { project?: string; media?: MediaInput[]; caption?: string; type?: 'photo' | 'carousel' | 'reel' | 'story'; idempotencyKey?: string; envFile?: string; dryRun?: boolean; altText?: string; userTags?: { username: string; x?: number; y?: number }[]; collaborators?: string[]; locationId?: string; shareToFeed?: boolean; coverUrl?: string; thumbOffset?: number; audioName?: string; audioId?: string; audioVolume?: number; videoVolume?: number };
     if (!body.project || !Array.isArray(body.media) || body.media.length === 0) throw new PublicationError('project and media are required', { code: 'INVALID_REQUEST', retryable: false, status: 400 });
-    const input = { projectPath: body.project, media: body.media, ...(body.caption === undefined ? {} : { caption: body.caption }), ...(body.type === undefined ? {} : { type: body.type }), ...(body.idempotencyKey === undefined ? {} : { idempotencyKey: body.idempotencyKey }), ...(body.envFile === undefined ? {} : { envFile: body.envFile }), ...(body.dryRun === undefined ? {} : { dryRun: body.dryRun }), ...(body.altText === undefined ? {} : { altText: body.altText }), ...(body.userTags === undefined ? {} : { userTags: body.userTags }), ...(body.collaborators === undefined ? {} : { collaborators: body.collaborators }), ...(body.locationId === undefined ? {} : { locationId: body.locationId }), ...(body.shareToFeed === undefined ? {} : { shareToFeed: body.shareToFeed }), ...(body.coverUrl === undefined ? {} : { coverUrl: body.coverUrl }), ...(body.thumbOffset === undefined ? {} : { thumbOffset: body.thumbOffset }), ...(body.audioName === undefined ? {} : { audioName: body.audioName }) };
+    const input = { projectPath: body.project, media: body.media, ...(body.caption === undefined ? {} : { caption: body.caption }), ...(body.type === undefined ? {} : { type: body.type }), ...(body.idempotencyKey === undefined ? {} : { idempotencyKey: body.idempotencyKey }), ...(body.envFile === undefined ? {} : { envFile: body.envFile }), ...(body.dryRun === undefined ? {} : { dryRun: body.dryRun }), ...(body.altText === undefined ? {} : { altText: body.altText }), ...(body.userTags === undefined ? {} : { userTags: body.userTags }), ...(body.collaborators === undefined ? {} : { collaborators: body.collaborators }), ...(body.locationId === undefined ? {} : { locationId: body.locationId }), ...(body.shareToFeed === undefined ? {} : { shareToFeed: body.shareToFeed }), ...(body.coverUrl === undefined ? {} : { coverUrl: body.coverUrl }), ...(body.thumbOffset === undefined ? {} : { thumbOffset: body.thumbOffset }), ...(body.audioName === undefined ? {} : { audioName: body.audioName }), ...(body.audioId === undefined ? {} : { audioId: body.audioId }), ...(body.audioVolume === undefined ? {} : { audioVolume: body.audioVolume }), ...(body.videoVolume === undefined ? {} : { videoVolume: body.videoVolume }) };
     return body.type === 'story' ? new PublishStory(dependencies.gateway, dependencies.staging, dependencies.resolver, dependencies.log).execute(input) : new PublishMedia(dependencies.gateway, dependencies.staging, dependencies.resolver, dependencies.log).execute(input);
   }, 201));
 
@@ -55,6 +55,13 @@ export function createApp(dependencies: HttpDependencies) {
     requiredProject(request),
     queryString(request.query.envFile),
     queryString(request.query.limit) === undefined ? undefined : Number(queryString(request.query.limit)),
+  )));
+  app.get('/v1/audio', asyncRoute(async (request) => new SearchAudio(dependencies.gateway, dependencies.resolver).execute(
+    requiredProject(request),
+    queryString(request.query.audio_type) ?? 'music',
+    queryString(request.query.search_query),
+    queryString(request.query.limit) === undefined ? undefined : Number(queryString(request.query.limit)),
+    queryString(request.query.envFile),
   )));
   app.get('/v1/discovery/:username', asyncRoute(async (request) => new DiscoverAccount(dependencies.gateway, dependencies.resolver).execute(
     requiredProject(request),

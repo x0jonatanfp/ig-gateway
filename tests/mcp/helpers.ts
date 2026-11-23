@@ -53,6 +53,16 @@ export function createFakeGateway() {
         timestamp: "2026-11-09T14:37:35+0000",
       },
     ]),
+    searchAudio: vi.fn(async () => [
+      {
+        audioId: "403060247990261",
+        title: "Example Song",
+        displayArtist: "Example Artist",
+        audioType: "music",
+        durationMs: 153_760,
+        previewUrl: "https://www.instagram.com/reels/audio/403060247990261/",
+      },
+    ]),
     getInsights: vi.fn(async () => [
       { name: "reach", values: [{ value: 120 }] },
       {

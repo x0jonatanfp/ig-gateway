@@ -22,6 +22,7 @@ import { fail } from "./outcome.js";
 import { publicationStatus } from "./publication-status.js";
 import { publishPreview } from "./publish-preview.js";
 import { publish } from "./publish.js";
+import { searchAudio } from "./search-audio.js";
 
 type UseCase = (
   deps: UseCaseDeps,
@@ -32,6 +33,7 @@ const USE_CASES: Record<string, UseCase> = {
   check: checkAccount,
   quota: getQuota,
   media: listMedia,
+  audio: searchAudio,
   insights: getInsights,
   active_hours: getActiveHours,
   comments: listComments,

@@ -19,6 +19,9 @@ export interface PreviewContent {
   locationId?: string;
   shareToFeed?: boolean;
   coverUrl?: string;
+  audioId?: string;
+  audioVolume?: number;
+  videoVolume?: number;
 }
 
 export function previewHash(content: PreviewContent): string {
@@ -35,6 +38,9 @@ export function previewHash(content: PreviewContent): string {
     locationId: content.locationId ?? null,
     shareToFeed: content.shareToFeed ?? null,
     coverUrl: content.coverUrl ?? null,
+    audioId: content.audioId ?? null,
+    audioVolume: content.audioVolume ?? null,
+    videoVolume: content.videoVolume ?? null,
   };
   return createHash("sha256").update(JSON.stringify(canonical)).digest("hex");
 }

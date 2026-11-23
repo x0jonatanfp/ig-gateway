@@ -20,6 +20,9 @@ export const MAX_HASHTAGS = 5;
 // Pendiente de verificar contra Meta: su documentación dice 20 y otras fuentes, 3.
 export const MAX_MENTIONS = 20;
 export const MAX_COLLABORATORS = 3;
+// Volúmenes de `audio_configuration`: enteros de 1 a 100 (100 = completo).
+export const MIN_AUDIO_VOLUME = 1;
+export const MAX_AUDIO_VOLUME = 100;
 export const MIN_CAROUSEL_ITEMS = 2;
 export const MAX_CAROUSEL_ITEMS = 10;
 
@@ -39,6 +42,9 @@ export interface PublicationDraft {
   locationId?: string;
   shareToFeed?: boolean;
   coverUrl?: string;
+  audioId?: string;
+  audioVolume?: number;
+  videoVolume?: number;
 }
 
 export function isPublicationType(value: string): value is PublicationType {
@@ -93,6 +99,28 @@ export function validateDraft(draft: PublicationDraft): string | null {
   }
   if (draft.shareToFeed !== undefined && draft.type !== "reel") {
     return "share_to_feed solo vale para reels.";
+  }
+  if (draft.audioId !== undefined && draft.type !== "reel") {
+    return "audio_id solo vale para reels.";
+  }
+  if (
+    draft.audioId === undefined &&
+    (draft.audioVolume !== undefined || draft.videoVolume !== undefined)
+  ) {
+    return "audio_volume y video_volume exigen audio_id.";
+  }
+  for (const [name, value] of [
+    ["audio_volume", draft.audioVolume],
+    ["video_volume", draft.videoVolume],
+  ] as const) {
+    if (
+      value !== undefined &&
+      (!Number.isInteger(value) ||
+        value < MIN_AUDIO_VOLUME ||
+        value > MAX_AUDIO_VOLUME)
+    ) {
+      return `${name} debe ser un entero entre ${MIN_AUDIO_VOLUME} y ${MAX_AUDIO_VOLUME} (hay ${value}).`;
+    }
   }
   return null;
 }

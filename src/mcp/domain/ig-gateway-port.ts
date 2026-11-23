@@ -101,6 +101,20 @@ export interface ActiveHoursRecord {
   peak: readonly { hour: number; average: number }[];
 }
 
+/** Pieza de la biblioteca de audio de Instagram (GET /v1/audio). */
+export interface AudioTrackRecord {
+  audioId: string;
+  title?: string;
+  displayArtist?: string;
+  /** Cuenta del audio original; solo en original_sound. */
+  username?: string;
+  audioType?: string;
+  durationMs?: number;
+  /** Enlace de previsualización: si es la descarga de Meta, caduca. */
+  previewUrl?: string;
+  coverArtworkUri?: string;
+}
+
 export interface CommentRecord {
   id: string;
   text?: string;
@@ -122,12 +136,21 @@ export interface PublishRequestInput {
   locationId?: string;
   shareToFeed?: boolean;
   coverUrl?: string;
+  audioId?: string;
+  audioVolume?: number;
+  videoVolume?: number;
 }
 
 export interface IgGatewayPort {
   checkAccount(project: string): Promise<AccountCheck>;
   getQuota(project: string): Promise<QuotaStatus>;
   listMedia(project: string, limit?: number): Promise<readonly MediaSummary[]>;
+  searchAudio(
+    project: string,
+    audioType: string,
+    searchQuery?: string,
+    limit?: number,
+  ): Promise<readonly AudioTrackRecord[]>;
   getInsights(
     project: string,
     mediaId: string,
