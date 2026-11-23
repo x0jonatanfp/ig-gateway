@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [1.2.0](https://github.com/x0jonatanfp/ig-gateway/compare/v1.1.0...v1.2.0) (2026-11-23)
+
+### Features
+
+* **audio:** busca música de Meta y la adjunta a los reels ([71c0eca](https://github.com/x0jonatanfp/ig-gateway/commit/71c0eca090e0a49bf3299ad44581b88ff80d70e4))
+
 ## [1.1.0](https://github.com/x0jonatanfp/ig-gateway/compare/v1.0.1...v1.1.0) (2026-11-16)
 
 ### Features
