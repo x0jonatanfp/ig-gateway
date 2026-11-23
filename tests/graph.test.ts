@@ -96,6 +96,38 @@ describe('GraphClient publishing', () => {
     const timeout = new GraphClient({ fetcher: fetchSequence([{ id: 'container' }, { status_code: 'IN_PROGRESS' }]).fetcher, pollIntervalMs: 0, maxPollAttempts: 1, sleep: async () => undefined }); await expect(timeout.publish(request())).rejects.toMatchObject({ code: 'REMOTE_FAILURE', retryable: true });
   });
 
+  it('says why a container ended in ERROR or EXPIRED', async () => {
+    // Caso real del 23-nov: el reel falló y el mensaje solo decía «ERROR».
+    const known = fetchSequence([{ id: 'container' }, { status_code: 'ERROR', status: '2207026' }]);
+    await expect(
+      new GraphClient({ fetcher: known.fetcher, pollIntervalMs: 0, sleep: async () => undefined })
+        .publish(request({ type: 'reel', media: [item('reel', 'https://example.test/reel.mp4')] })),
+    ).rejects.toMatchObject({
+      code: 'INVALID_REQUEST',
+      retryable: false,
+      subcode: 2207026,
+      message: 'Instagram media container failed with ERROR (subcode 2207026: unsupported video format; upload an MOV or MP4)',
+    });
+    // El subcódigo viaja en `status`, así que se pide junto al status_code.
+    expect(bodyOf(known.calls[1] ?? {}).get('fields')).toBe('status_code,status');
+
+    // Un subcódigo que Meta no documenta se muestra tal cual, sin causa inventada.
+    const unknownStatus = fetchSequence([{ id: 'container' }, { status_code: 'ERROR', status: 2299999 }]);
+    await expect(
+      new GraphClient({ fetcher: unknownStatus.fetcher, pollIntervalMs: 0, sleep: async () => undefined }).publish(request()),
+    ).rejects.toMatchObject({ subcode: 2299999, message: 'Instagram media container failed with ERROR (subcode 2299999)' });
+
+    const noStatus = fetchSequence([{ id: 'container' }, { status_code: 'ERROR' }]);
+    await expect(
+      new GraphClient({ fetcher: noStatus.fetcher, pollIntervalMs: 0, sleep: async () => undefined }).publish(request()),
+    ).rejects.toMatchObject({ code: 'INVALID_REQUEST', retryable: false, message: 'Instagram media container failed with ERROR (Meta no dio detalle)' });
+
+    const expired = fetchSequence([{ id: 'container' }, { status_code: 'EXPIRED' }]);
+    await expect(
+      new GraphClient({ fetcher: expired.fetcher, pollIntervalMs: 0, sleep: async () => undefined }).publish(request()),
+    ).rejects.toMatchObject({ code: 'INVALID_REQUEST', retryable: false, message: 'Instagram media container failed with EXPIRED (Meta no dio detalle)' });
+  });
+
   it('caches the quota instead of asking on every publication', async () => {
     let calls = 0;
     const fetcher = vi.fn(async () => { calls += 1; return jsonResponse({ data: [{ quota_usage: 2, config: { quota_total: 100, quota_duration: 86400 } }] }); }) as unknown as typeof fetch;

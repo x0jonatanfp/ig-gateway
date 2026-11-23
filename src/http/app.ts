@@ -3,6 +3,7 @@ import { CheckAccount, DiscoverAccount, GetActiveHours, GetInsights, GetQuota, L
 import type { MediaInput, InstagramGatewayPort, MediaStagingPort, AccountResolverPort, PublicationLogPort } from '../domain/index.js';
 import { PublicationError } from '../domain/PublicationError.js';
 import { toPublicAccount } from '../domain/Account.js';
+import { logger } from '../infrastructure/logging/Logger.js';
 
 export interface HttpDependencies {
   gateway: InstagramGatewayPort;
@@ -76,8 +77,20 @@ export function createApp(dependencies: HttpDependencies) {
   )));
   app.get('/v1/media/:id/comments', asyncRoute(async (request) => new ModerateComment(dependencies.gateway, dependencies.resolver).execute(requiredProject(request), pathString(request.params.id), 'list')));
   app.post('/v1/media/:id/comments', asyncRoute(async (request) => new ModerateComment(dependencies.gateway, dependencies.resolver).execute(requiredProject(request), pathString(request.params.id), request.body.action ?? 'reply', request.body.text)));
-  app.use((error: unknown, _request: Request, response: Response, _next: NextFunction) => {
+  app.use((error: unknown, request: Request, response: Response, _next: NextFunction) => {
     const publicationError = error instanceof PublicationError ? error : new PublicationError('Internal gateway error', { code: 'UNKNOWN', retryable: false, status: 500, cause: error });
+    // Todo error que sale por HTTP queda también en el log del servicio (journal): sin esto un fallo
+    // no reintentable solo se veía en quien llamaba. Solo método y ruta: ni query ni cuerpo ni cabeceras.
+    logger.error('[ig-gateway] request failed', {
+      method: request.method,
+      path: request.path,
+      status: publicationError.status ?? 500,
+      code: publicationError.code,
+      ...(publicationError.subcode === undefined ? {} : { subcode: publicationError.subcode }),
+      retryable: publicationError.retryable,
+      message: publicationError.message,
+      ...(error instanceof PublicationError || !(error instanceof Error) ? {} : { cause: error.message }),
+    });
     response.status(publicationError.status ?? 500).json({ error: publicationError.message, code: publicationError.code, ...(publicationError.subcode === undefined ? {} : { subcode: publicationError.subcode }), ...(publicationError.fbtrace === undefined ? {} : { fbtrace: publicationError.fbtrace }), retryable: publicationError.retryable });
   });
   return app;

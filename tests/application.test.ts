@@ -17,6 +17,13 @@ describe('application', () => {
     expect(waits).toEqual([5_000]);
   });
   it('stops on definitive errors', async () => { const { publisher, gateway, staging } = setup(); gateway.nextError = new PublicationError('bad token', { code: 'AUTHENTICATION', subcode: 190, retryable: false }); await expect(publisher.execute({ projectPath: '/tmp/project', media: [{ path: '/tmp/a.jpg' }] })).rejects.toMatchObject({ code: 'AUTHENTICATION', retryable: false }); expect(gateway.publishCalls).toBe(1); expect(staging.cleanupCalls).toBe(1); });
+  it('records every failure in the publication log with its detail', async () => {
+    const { publisher, gateway, log } = setup();
+    const message = 'Instagram media container failed with ERROR (subcode 2207026: unsupported video format; upload an MOV or MP4)';
+    gateway.nextError = new PublicationError(message, { code: 'INVALID_REQUEST', subcode: 2207026, retryable: false });
+    await expect(publisher.execute({ projectPath: '/tmp/project', type: 'reel', media: [{ path: '/tmp/reel.mp4' }] })).rejects.toMatchObject({ code: 'INVALID_REQUEST' });
+    expect(log.events).toEqual([{ event: 'publish_failed', code: 'INVALID_REQUEST', subcode: 2207026, retryable: false, message }]);
+  });
   it('rejects exhausted quota before staging', async () => { const { publisher, gateway, staging } = setup(); gateway.quota = { quotaUsage: 25, quotaTotal: 25, quotaRemaining: 0 }; await expect(publisher.execute({ projectPath: '/tmp/project', media: [{ path: '/tmp/a.jpg' }] })).rejects.toMatchObject({ code: 'QUOTA_EXHAUSTED' }); expect(staging.items).toHaveLength(0); expect(staging.cleanupCalls).toBe(0); });
   it('does not call Meta if staging fails', async () => { const { publisher, gateway, staging } = setup(); staging.fail = true; await expect(publisher.execute({ projectPath: '/tmp/project', media: [{ path: '/tmp/a.jpg' }] })).rejects.toMatchObject({ code: 'STAGING_FAILURE' }); expect(gateway.publishCalls).toBe(0); });
   it('is idempotent by key', async () => { const { publisher, gateway } = setup(); const first = await publisher.execute({ projectPath: '/tmp/project', media: [{ path: '/tmp/a.jpg' }], idempotencyKey: 'same' }); const second = await publisher.execute({ projectPath: '/tmp/project', media: [{ path: '/tmp/other.jpg' }], idempotencyKey: 'same' }); expect(second.id).toBe(first.id); expect(gateway.publishCalls).toBe(1); });

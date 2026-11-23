@@ -41,6 +41,35 @@ export class PublishMedia {
   ) {}
 
   async execute(input: PublishMediaInput) {
+    try {
+      return await this.publish(input);
+    } catch (error) {
+      await this.recordFailure(error);
+      throw error;
+    }
+  }
+
+  /**
+   * Todo fallo queda en el registro, no solo la respuesta: sin esto, un error
+   * no reintentable (un contenedor en ERROR, por ejemplo) desaparecía del
+   * JSONL y solo se veía en quien llamaba.
+   */
+  private async recordFailure(error: unknown): Promise<void> {
+    const publicationError = error instanceof PublicationError ? error : undefined;
+    try {
+      await this.log.appendEvent({
+        event: 'publish_failed',
+        code: publicationError?.code ?? 'UNKNOWN',
+        ...(publicationError?.subcode === undefined ? {} : { subcode: publicationError.subcode }),
+        retryable: publicationError?.retryable ?? false,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } catch {
+      // El registro es diagnóstico: si falla, no puede tapar el error real.
+    }
+  }
+
+  private async publish(input: PublishMediaInput) {
     if (input.idempotencyKey) {
       const previous = await this.log.findByIdempotencyKey(input.idempotencyKey);
       if (previous) return previous;

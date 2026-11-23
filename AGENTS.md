@@ -58,6 +58,7 @@ Publishing flow: the use case validates the media and the caption → the quota 
 
 - **No scheduling.** `published=false` with `scheduled_publish_time` returns an error. Scheduling is the responsibility of each project (cron or queue), not of the gateway.
 - **Retries only before publishing.** The retries (0 s, 5 s, 20 s) cover only failures before `media_publish`. After publishing, it is never retried.
+- **Container failure detail.** The container is polled with `status_code,status`; when `status_code` is `ERROR`, `status` is Meta's error subcode. It goes into the message and into `subcode`, so HTTP, CLI, MCP and the caller's `result.json` show why. Meanings live in `domain/ContainerStatus.ts` and cover only documented subcodes: do not invent causes Meta does not publish. Every failed publication is logged as a `publish_failed` event in the JSONL.
 - **Verifying an unknown result.** If `media_publish` fails, the gateway checks the account: if the publication went out, it responds as published with `recovered: true`. Do not retry blindly.
 - **App request limit.** It is different from the publishing quota (100 every 24 h). The gateway applies its own throttle (`IG_MAX_CALLS_PER_MINUTE`) and a quota cache (`IG_QUOTA_TTL_MS`).
 - **Hashtag cap.** Lowered from 30 to 5 (commit `1f4bec7`), which is the real limit of the API.

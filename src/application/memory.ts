@@ -16,7 +16,7 @@ export class MemoryGateway implements InstagramGatewayPort {
   media: InstagramMediaItem[] = [];
   discovered: DiscoveredAccount | undefined;
   lastDiscovery: { username: string; limit: number | undefined } | undefined;
-  nextError: PublicationError | undefined;
+  nextError: Error | undefined;
   publishCalls = 0;
   callStats = { callsLastHour: 0, callsLastMinute: 0, maxCallsPerMinute: 30 };
   lastRequest: PublishRequest | undefined;

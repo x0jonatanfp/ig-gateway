@@ -242,6 +242,16 @@ that bursts trigger. The gateway is tuned to spend as little as possible:
 - **Adaptive polling**: after creating a container it asks with growing waits
   (2 s → 15 s). Separate profiles for image (45 s cap) and video (6 min cap). A
   normal photo is published with a single check.
+- **Container failures with a reason**: the container is polled with
+  `status_code,status`. If it ends in `ERROR` or `EXPIRED`, the message carries
+  Meta's subcode (`… failed with ERROR (subcode 2207026: unsupported video
+  format; upload an MOV or MP4)`), and so do the HTTP body, the caller's
+  `result.json`, the CLI and the MCP. Unknown subcodes are shown as they come;
+  without `status` the message says `Meta no dio detalle`. Only subcodes Meta
+  documents have a text: it publishes none of its own for duration, edit list,
+  codec, size or audio, so the gateway does not invent causes for those. Every
+  failed publication is also written to `publications.jsonl` as a
+  `publish_failed` event with `code`, `subcode`, `retryable` and `message`.
 - **Cached quota** for 5 minutes per account (`IG_QUOTA_TTL_MS`); it always asks
   again when less than 20 % of margin is left, and publishing raises it by
   itself.

@@ -7,6 +7,7 @@ import { PublicationError, invalidRequestError, type PublicationErrorCode } from
 import type { Comment, DiscoveredAccount, DiscoveredMedia, Insight, InstagramGatewayPort, InstagramMediaItem, PublishRequest } from '../../domain/ports.js';
 import type { OnlineFollowersDay } from '../../domain/ActiveHours.js';
 import { DEFAULT_AUDIO_LIMIT, MAX_AUDIO_LIMIT, validateAudioVolume, type AudioTrack, type AudioType } from '../../domain/Audio.js';
+import { containerFailureDetail, containerFailureSubcode } from '../../domain/ContainerStatus.js';
 import { logger } from '../logging/Logger.js';
 
 interface GraphErrorBody { error?: { message?: string; code?: number; error_subcode?: number; fbtrace_id?: string; is_transient?: boolean }; }
@@ -19,6 +20,8 @@ interface GraphResponse {
   biography?: string;
   website?: string;
   status_code?: string;
+  /** Con `status_code` en `ERROR`, Meta pone aquí el subcódigo del fallo. */
+  status?: string | number;
   quota_usage?: number;
   config?: { quota_total?: number; quota_duration?: number };
   comments?: { data?: Comment[] };
@@ -591,9 +594,17 @@ export class GraphClient implements InstagramGatewayPort {
     const startedAt = Date.now();
     let interval = profile.intervalMs;
     for (let attempt = 0; attempt < profile.maxAttempts && Date.now() - startedAt <= profile.timeoutMs; attempt += 1) {
-      const result = await this.request<GraphResponse>(account, `/${containerId}`, { fields: 'status_code' });
+      // `status` lleva el subcódigo del fallo cuando `status_code` es ERROR:
+      // sin él, un reel roto solo decía «ERROR» y no había forma de saber por qué.
+      const result = await this.request<GraphResponse>(account, `/${containerId}`, { fields: 'status_code,status' });
       if (result.status_code === 'FINISHED') return;
-      if (result.status_code === 'ERROR' || result.status_code === 'EXPIRED') throw new PublicationError(`Instagram media container failed with ${result.status_code}`, { code: 'INVALID_REQUEST', retryable: false });
+      if (result.status_code === 'ERROR' || result.status_code === 'EXPIRED') {
+        const subcode = containerFailureSubcode(result.status);
+        throw new PublicationError(
+          `Instagram media container failed with ${result.status_code} (${containerFailureDetail(result.status)})`,
+          { code: 'INVALID_REQUEST', retryable: false, ...(subcode === undefined ? {} : { subcode }) },
+        );
+      }
       await this.sleep(interval);
       interval = Math.min(Math.round(interval * 1.5), 15_000);
     }

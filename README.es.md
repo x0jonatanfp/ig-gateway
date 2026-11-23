@@ -248,6 +248,16 @@ el que se dispara con ráfagas. El gateway está afinado para gastar lo mínimo:
 - **Sondeo adaptativo**: tras crear el contenedor se pregunta con espera
   creciente (2 s → 15 s). Perfiles distintos para imagen (tope 45 s) y vídeo
   (tope 6 min). Una foto normal se publica con una sola comprobación.
+- **Fallos del contenedor con motivo**: el contenedor se sondea con
+  `status_code,status`. Si acaba en `ERROR` o `EXPIRED`, el mensaje lleva el
+  subcódigo de Meta (`… failed with ERROR (subcode 2207026: unsupported video
+  format; upload an MOV or MP4)`) y con él el cuerpo HTTP, el `result.json` de
+  quien llama, el CLI y el MCP. Un subcódigo desconocido se muestra tal cual;
+  sin `status`, el mensaje dice `Meta no dio detalle`. Solo tienen texto los
+  subcódigos que Meta documenta: no publica ninguno propio para duración, edit
+  list, códec, tamaño o audio, así que el gateway no se inventa esas causas.
+  Todo fallo de publicación queda además en `publications.jsonl` como evento
+  `publish_failed` con `code`, `subcode`, `retryable` y `message`.
 - **Cuota cacheada** 5 minutos por cuenta (`IG_QUOTA_TTL_MS`); se pregunta
   siempre si queda menos del 20 % de margen, y tras publicar sube sola.
 - **Reintentos con espera** (0 s, 5 s, 20 s) y solo para fallos anteriores a
